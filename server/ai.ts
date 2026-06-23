@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import crypto from "crypto";
 
 // Initialize Gemini SDK with custom user-agent header
 const aiClient = new GoogleGenAI({
@@ -9,6 +10,37 @@ const aiClient = new GoogleGenAI({
     },
   },
 });
+
+// Simple in-memory cache to save API costs and improve latency
+const apiCache = new Map<string, { timestamp: number; data: string }>();
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+function getCacheKey(payload: any): string {
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
+
+async function cachedGenerateContent(options: any): Promise<{ text: string }> {
+  const cacheKey = getCacheKey(options);
+  const cached = apiCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    console.log(`[AI SDK] Cache hit for key: ${cacheKey}`);
+    return { text: cached.data };
+  }
+
+  const response = await retryWithBackoff(() => aiClient.models.generateContent(options));
+  const text = response.text || "";
+  
+  if (text) {
+    // Basic limit to prevent boundless memory growth
+    if (apiCache.size > 1000) {
+      const firstKey = apiCache.keys().next().value;
+      if (firstKey) apiCache.delete(firstKey);
+    }
+    apiCache.set(cacheKey, { timestamp: Date.now(), data: text });
+  }
+  
+  return { text };
+}
 
 /**
  * Exponential backoff wrapper for transient/overloaded/quota API errors (e.g. 503, 429)
@@ -65,38 +97,36 @@ Input task description: "${textInput}"
 `;
 
   try {
-    const response = await retryWithBackoff(() =>
-      aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: {
-                type: Type.STRING,
-                description: "Actionable title of the task",
-              },
-              deadline: {
-                type: Type.STRING,
-                description: "Calculated deadline string in YYYY-MM-DD format",
-              },
-              effort: {
-                type: Type.INTEGER,
-                description: "Estimated hours needed to complete",
-              },
-              priority: {
-                type: Type.STRING,
-                description: "Task priority level",
-                enum: ["high", "medium", "low"],
-              },
+    const response = await cachedGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: {
+              type: Type.STRING,
+              description: "Actionable title of the task",
             },
-            required: ["title", "deadline", "effort", "priority"],
+            deadline: {
+              type: Type.STRING,
+              description: "Calculated deadline string in YYYY-MM-DD format",
+            },
+            effort: {
+              type: Type.INTEGER,
+              description: "Estimated hours needed to complete",
+            },
+            priority: {
+              type: Type.STRING,
+              description: "Task priority level",
+              enum: ["high", "medium", "low"],
+            },
           },
+          required: ["title", "deadline", "effort", "priority"],
         },
-      })
-    );
+      },
+    });
 
     return JSON.parse(response.text.trim());
   } catch (err: any) {
@@ -183,34 +213,32 @@ Be hyper-realistic, objective, and structured. Do not larp or make up artificial
 
   try {
     // Use the highly capable gemini-3.5-flash model for risk evaluation
-    const response = await retryWithBackoff(() =>
-      aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              riskScore: {
-                type: Type.INTEGER,
-                description: "Risk score from 0 to 100",
-              },
-              explanation: {
-                type: Type.STRING,
-                description: "A detailed but professional explanation of the calculated risk",
-              },
-              recommendations: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "Actionable checklist items to bring the risk score down",
-              },
+    const response = await cachedGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            riskScore: {
+              type: Type.INTEGER,
+              description: "Risk score from 0 to 100",
             },
-            required: ["riskScore", "explanation", "recommendations"],
+            explanation: {
+              type: Type.STRING,
+              description: "A detailed but professional explanation of the calculated risk",
+            },
+            recommendations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Actionable checklist items to bring the risk score down",
+            },
           },
+          required: ["riskScore", "explanation", "recommendations"],
         },
-      })
-    );
+      },
+    });
 
     return JSON.parse(response.text.trim());
   } catch (err: any) {
@@ -296,39 +324,37 @@ Return a JSON object with:
 `;
 
   try {
-    const response = await retryWithBackoff(() =>
-      aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
+    const response = await cachedGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            items: {
+              type: Type.ARRAY,
               items: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    time: { type: Type.STRING, description: "Start time block title, e.g. 06:00 PM" },
-                    taskTitle: { type: Type.STRING, description: "Title of the task or buffer block" },
-                    durationMin: { type: Type.INTEGER, description: "Elapsed time block in minutes" },
-                    priority: { type: Type.STRING, enum: ["high", "medium", "low"] },
-                  },
-                  required: ["time", "taskTitle", "durationMin", "priority"],
+                type: Type.OBJECT,
+                properties: {
+                  time: { type: Type.STRING, description: "Start time block title, e.g. 06:00 PM" },
+                  taskTitle: { type: Type.STRING, description: "Title of the task or buffer block" },
+                  durationMin: { type: Type.INTEGER, description: "Elapsed time block in minutes" },
+                  priority: { type: Type.STRING, enum: ["high", "medium", "low"] },
                 },
-              },
-              recommendations: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "List of personalized schedule rules or advice",
+                required: ["time", "taskTitle", "durationMin", "priority"],
               },
             },
-            required: ["items", "recommendations"],
+            recommendations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "List of personalized schedule rules or advice",
+            },
           },
+          required: ["items", "recommendations"],
         },
-      })
-    );
+      },
+    });
 
     return JSON.parse(response.text.trim());
   } catch (err: any) {
@@ -433,38 +459,36 @@ Return:
 `;
 
   try {
-    const response = await retryWithBackoff(() =>
-      aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
+    const response = await cachedGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            items: {
+              type: Type.ARRAY,
               items: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    time: { type: Type.STRING },
-                    taskTitle: { type: Type.STRING },
-                    durationMin: { type: Type.INTEGER },
-                    priority: { type: Type.STRING, enum: ["high", "medium", "low"] },
-                  },
-                  required: ["time", "taskTitle", "durationMin", "priority"],
+                type: Type.OBJECT,
+                properties: {
+                  time: { type: Type.STRING },
+                  taskTitle: { type: Type.STRING },
+                  durationMin: { type: Type.INTEGER },
+                  priority: { type: Type.STRING, enum: ["high", "medium", "low"] },
                 },
-              },
-              recommendations: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
+                required: ["time", "taskTitle", "durationMin", "priority"],
               },
             },
-            required: ["items", "recommendations"],
+            recommendations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
           },
+          required: ["items", "recommendations"],
         },
-      })
-    );
+      },
+    });
 
     return JSON.parse(response.text.trim());
   } catch (err: any) {
@@ -538,20 +562,18 @@ Return:
  */
 export async function transcribeAudio(audioBase64: string, mimeType: string = "audio/wav") {
   try {
-    const response = await retryWithBackoff(() =>
-      aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: [
-          {
-            inlineData: {
-              mimeType,
-              data: audioBase64,
-            },
+    const response = await cachedGenerateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        {
+          inlineData: {
+            mimeType,
+            data: audioBase64,
           },
-          "You are a stellar transcriber. Transcribe the spoken audio into clear English text. If there is no talking or silence, output an empty response. Otherwise, output ONLY the transcription text. Do not add metadata, footnotes, or conversational padding.",
-        ],
-      })
-    );
+        },
+        "You are a stellar transcriber. Transcribe the spoken audio into clear English text. If there is no talking or silence, output an empty response. Otherwise, output ONLY the transcription text. Do not add metadata, footnotes, or conversational padding.",
+      ],
+    });
 
     return response.text ? response.text.trim() : "";
   } catch (err: any) {
@@ -594,7 +616,7 @@ Instructions:
 
   try {
     // Start chat with history
-    const chat = aiClient.chats.create({
+    const chatConfig = {
       model: "gemini-3.5-flash", 
       config: {
         systemInstruction: chatContext,
@@ -604,10 +626,29 @@ Instructions:
         role: h.role,
         parts: [{ text: h.content }],
       })),
-    });
+    };
+    
+    // Check Cache
+    const cacheKey = getCacheKey({ ...chatConfig, message: latestPrompt });
+    const cached = apiCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      console.log(`[AI SDK] Cache hit for chat: ${cacheKey}`);
+      return cached.data;
+    }
 
+    const chat = aiClient.chats.create(chatConfig);
     const response = await retryWithBackoff(() => chat.sendMessage({ message: latestPrompt }));
-    return response.text ? response.text.trim() : "";
+    const text = response.text ? response.text.trim() : "";
+    
+    if (text) {
+      if (apiCache.size > 1000) {
+        const firstKey = apiCache.keys().next().value;
+        if (firstKey) apiCache.delete(firstKey);
+      }
+      apiCache.set(cacheKey, { timestamp: Date.now(), data: text });
+    }
+    
+    return text;
   } catch (err: any) {
     console.error("General Chat Error:", err);
     const errorStr = err?.message || String(err);
