@@ -13,7 +13,7 @@ const aiClient = new GoogleGenAI({
 /**
  * Exponential backoff wrapper for transient/overloaded/quota API errors (e.g. 503, 429)
  */
-async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 3, initialDelayMs = 500): Promise<T> {
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 5, initialDelayMs = 1500): Promise<T> {
   let delay = initialDelayMs;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -29,15 +29,21 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 3, initial
         errMsg.includes("quota") ||
         errMsg.includes("Quota") ||
         errMsg.includes("exhausted") ||
-        errMsg.includes("demand");
+        errMsg.includes("demand") ||
+        errMsg.includes("409") ||
+        errMsg.includes("Conflict");
 
       if (!isTransient || attempt === maxRetries) {
         throw err;
       }
 
-      console.warn(`[AI SDK] Transient error encountered on attempt ${attempt}: ${errMsg}. Retrying in ${delay}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      delay *= 2.5; // Scale delay exponentially
+      // Add small randomness (jitter) to avoid thundering herd
+      const jitter = Math.floor(Math.random() * 500);
+      const currentDelay = delay + jitter;
+      
+      console.warn(`[AI SDK] Transient error encountered on attempt ${attempt}: ${errMsg}. Retrying in ${currentDelay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, currentDelay));
+      delay *= 2; // Scale delay exponentially
     }
   }
   throw new Error("Retry logic terminated unexpectedly.");
