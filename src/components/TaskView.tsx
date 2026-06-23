@@ -66,7 +66,6 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
         mediaRecorder = new MediaRecorder(stream); // fallback mimeType if webm is unrecognized
       }
 
-      mediaRecorderRef.onclassname = "";
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 

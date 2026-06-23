@@ -175,8 +175,13 @@ export default function LiveVoiceWidget() {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Convert Int16 bytes block directly back to float32 samples
-      const int16s = new Int16Array(bytes.buffer);
+      // Convert Int16 bytes block directly back to float32 samples safely, avoiding odd-byte alignment RangeError
+      const evenLen = len - (len % 2);
+      const safeBuffer = new ArrayBuffer(evenLen);
+      const view = new Uint8Array(safeBuffer);
+      view.set(bytes.subarray(0, evenLen));
+      const int16s = new Int16Array(safeBuffer);
+
       const float35s = new Float32Array(int16s.length);
       for (let i = 0; i < int16s.length; i++) {
         float35s[i] = int16s[i] / 32768.0;

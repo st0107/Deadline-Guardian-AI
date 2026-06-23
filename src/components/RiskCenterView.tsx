@@ -190,7 +190,7 @@ export default function RiskCenterView({ tasks, initialSelectedTaskId, onTasksUp
             {/* Smart Checklist recommendations */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 space-y-4 shadow-sm">
               <h3 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
-                <CheckSquare className="h-5 w-5 text-emerald-600 text-indigo-600" />
+                <CheckSquare className="h-5 w-5 text-emerald-600" />
                 <span>Recommended Mitigation Roadmap</span>
               </h3>
 
