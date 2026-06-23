@@ -145,7 +145,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-650 hover:bg-indigo-700 text-white text-sm font-bold py-3.5 px-4 rounded-xl mt-6 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-md"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-3.5 px-4 rounded-xl mt-6 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-md"
             >
               {loading ? (
                 <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -172,9 +172,9 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
               className="text-xs text-slate-500 hover:text-indigo-600 font-semibold transition-colors cursor-pointer"
             >
               {isLogin ? (
-                <span>Don't have an account? <strong className="text-indigo-650">Register</strong></span>
+                <span>Don't have an account? <strong className="text-indigo-600">Register</strong></span>
               ) : (
-                <span>Already have an account? <strong className="text-indigo-650">Log In</strong></span>
+                <span>Already have an account? <strong className="text-indigo-600">Log In</strong></span>
               )}
             </button>
           </div>

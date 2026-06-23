@@ -171,7 +171,7 @@ export default function ChatAdvisor({ tasksCount }: ChatAdvisorProps) {
         <button
           disabled={loading || !inputMsg.trim()}
           type="submit"
-          className="p-2 bg-indigo-650 hover:bg-indigo-700 disabled:opacity-30 text-white rounded-xl transition-colors cursor-pointer shrink-0 shadow-sm"
+          className="p-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 text-white rounded-xl transition-colors cursor-pointer shrink-0 shadow-sm"
         >
           <Send className="h-3.5 w-3.5" />
         </button>

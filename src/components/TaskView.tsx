@@ -299,7 +299,7 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                       {isRecording ? (
                         <button
                           onClick={stopRecord}
-                          className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-650 flex items-center justify-center text-white cursor-pointer relative shadow-md"
+                          className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white cursor-pointer relative shadow-md"
                           title="Click to stop audio recording"
                         >
                           <MicOff className="h-4 w-4" />
@@ -309,11 +309,11 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                         <button
                           onClick={startRecord}
                           disabled={audioTranscriptionPending}
-                          className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 font-semibold flex items-center justify-center text-indigo-650 cursor-pointer disabled:opacity-50 border border-slate-200/50"
+                          className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 font-semibold flex items-center justify-center text-indigo-600 cursor-pointer disabled:opacity-50 border border-slate-200/50"
                           title="Record audio and transcribe"
                         >
                           {audioTranscriptionPending ? (
-                            <div className="h-3 w-3 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+                            <div className="h-3 w-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                           ) : (
                             <Mic className="h-4 w-4" />
                           )}
@@ -553,7 +553,7 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                       </button>
                       <button
                         onClick={() => handleDelete(t.id)}
-                        className="p-2 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-100"
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-100"
                         title="Purge Task"
                       >
                         <Trash2 className="h-4 w-4" />

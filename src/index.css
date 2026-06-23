@@ -11,6 +11,12 @@
   --color-primary-500: #22c55e;
   --color-primary-600: #16a34a;
   --color-primary-700: #15803d;
+
+  /* Resolving custom colors/shades used throughout the application */
+  --color-indigo-650: #493ecc;
+  --color-red-650: #cb2020;
+  --color-slate-650: #3e4a5c;
+  --color-emerald-605: #058b61;
 }
 
 /* Custom smooth transitions and animations */

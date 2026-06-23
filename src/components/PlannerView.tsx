@@ -178,7 +178,7 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
           <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
               <h3 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
-                <Brain className="h-5 w-5 text-indigo-650" />
+                <Brain className="h-5 w-5 text-indigo-600" />
                 <span>Hour-By-Hour Allocation list</span>
               </h3>
               <span className="text-2xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
@@ -203,7 +203,7 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
                        
                       <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-100 group-hover:border-slate-200 group-hover:bg-slate-50 transition-all shadow-3xs">
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-xs font-bold text-slate-650 font-mono flex items-center gap-1">
+                          <span className="text-xs font-bold text-slate-600 font-mono flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5 text-slate-400" />
                             <span>{item.time}</span>
                           </span>
@@ -230,7 +230,7 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <h3 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2 mb-4">
-              <ShieldCheck className="h-5 w-5 text-indigo-650" />
+              <ShieldCheck className="h-5 w-5 text-indigo-600" />
               <span>Priority Guard Guidance</span>
             </h3>
 
@@ -239,7 +239,7 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
             ) : (
               <div className="space-y-3">
                 {currentPlan.recommendations.map((rec, idx) => (
-                  <div key={idx} className="p-3.5 bg-slate-50/60 rounded-xl border border-slate-100 text-xs text-slate-650 leading-relaxed font-semibold shadow-3xs">
+                  <div key={idx} className="p-3.5 bg-slate-50/60 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed font-semibold shadow-3xs">
                     <p>{rec}</p>
                   </div>
                 ))}

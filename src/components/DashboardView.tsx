@@ -151,7 +151,7 @@ export default function DashboardView({ tasks, productivityScore, onNavigate, on
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold text-red-650 uppercase tracking-wider font-mono">CRITICAL RISK {t.riskScore}%</span>
+                        <span className="text-[10px] font-extrabold text-red-600 uppercase tracking-wider font-mono">CRITICAL RISK {t.riskScore}%</span>
                         <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
                         <span className="text-xs font-semibold text-slate-500">Due {formatDate(t.deadline)}</span>
                       </div>
@@ -179,7 +179,7 @@ export default function DashboardView({ tasks, productivityScore, onNavigate, on
             </div>
             <button
               onClick={() => onNavigate("planner")}
-              className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white shadow-sm text-xs font-semibold rounded-lg transition-colors shrink-0 cursor-pointer border-0"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm text-xs font-semibold rounded-lg transition-colors shrink-0 cursor-pointer border-0"
             >
               Configure AI Planner
             </button>

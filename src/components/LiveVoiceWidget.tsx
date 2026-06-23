@@ -236,7 +236,7 @@ export default function LiveVoiceWidget() {
         {!active && !connecting ? (
           <button
             onClick={startVoiceSession}
-            className="h-16 w-16 rounded-full bg-indigo-650 hover:bg-indigo-700 font-semibold cursor-pointer flex items-center justify-center text-white transition-all shadow-md active:scale-95"
+            className="h-16 w-16 rounded-full bg-indigo-600 hover:bg-indigo-700 font-semibold cursor-pointer flex items-center justify-center text-white transition-all shadow-md active:scale-95"
             title="Start verbal conversation dialogue"
           >
             <PhoneCall className="h-6 w-6" />
@@ -255,7 +255,7 @@ export default function LiveVoiceWidget() {
       <div className="text-[11px] text-slate-505 text-slate-500 font-medium leading-normal text-center max-w-xs pt-2">
         {active ? (
           <span className="text-indigo-600 flex items-center justify-center gap-1 font-bold">
-            <Volume2 className="h-4.5 w-4.5 animate-pulse text-indigo-650" />
+            <Volume2 className="h-4.5 w-4.5 animate-pulse text-indigo-600" />
             <span>Spoken speech translation and logic stream are active...</span>
           </span>
         ) : (

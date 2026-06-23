@@ -34,7 +34,7 @@ export default function AnalyticsView({ tasksCount }: AnalyticsViewProps) {
   if (loading) {
     return (
       <div className="text-center py-24 text-slate-500 font-semibold">
-        <div className="h-8 w-8 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
         <p className="text-sm font-semibold">Consolidating statistical telemetry data...</p>
       </div>
     );
@@ -160,7 +160,7 @@ export default function AnalyticsView({ tasksCount }: AnalyticsViewProps) {
           {/* Productivity Health Summary card */}
           <div className="bg-gradient-to-r from-indigo-50/60 via-slate-50 to-indigo-50/10 border border-slate-200 rounded-2xl p-5 md:p-6 shadow-3xs">
             <h4 className="text-sm font-bold text-slate-900 mb-2">Adaptive Workload Evaluation Index</h4>
-            <div className="text-xs text-slate-650 space-y-2 leading-relaxed font-semibold">
+            <div className="text-xs text-slate-600 space-y-2 leading-relaxed font-semibold">
               <p>Your current dynamic productivity performance score sits at <strong className="text-indigo-700 font-extrabold text-sm">{analytics?.productivityScore}%</strong>.</p>
               <p>This metric automatically shifts based on overdue tasks, high risk scores calculated by Gemini, and consistency of completion intervals. To improve your margin, clear moderate tasks early or utilize the <strong>AI Planner</strong> to partition your load.</p>
             </div>
@@ -170,7 +170,7 @@ export default function AnalyticsView({ tasksCount }: AnalyticsViewProps) {
         {/* Audit Activity Stream Column */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col h-[400px] lg:h-auto shadow-sm">
           <h3 className="font-display font-medium text-xs text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-4 shrink-0 border-b border-slate-100 pb-3 font-semibold">
-            <History className="h-4.5 w-4.5 text-indigo-650" />
+            <History className="h-4.5 w-4.5 text-indigo-600" />
             <span>Activity Trail Logs</span>
           </h3>
 
