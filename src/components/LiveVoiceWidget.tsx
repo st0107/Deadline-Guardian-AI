@@ -154,7 +154,7 @@ export default function LiveVoiceWidget() {
     return int16Array;
   };
 
-  const pcmArrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const pcmArrayBufferToBase64 = (buffer: ArrayBufferLike): string => {
     let binary = "";
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
