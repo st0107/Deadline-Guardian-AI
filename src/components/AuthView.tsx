@@ -152,7 +152,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
               ) : isLogin ? (
                 <>
                   <LogIn className="h-4 w-4" />
-                  <span>Access Platform</span>
+                  <span>Login Platform</span>
                 </>
               ) : (
                 <>
