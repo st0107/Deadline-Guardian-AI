@@ -95,36 +95,42 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans overflow-hidden">
       
       {/* Top Navigation Header */}
-      <header className="h-16 bg-white border-b border-slate-200 shrink-0 px-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="h-16 bg-white border-b border-slate-200 shrink-0 px-4 md:px-6 flex items-center justify-between z-20 relative">
+        <div className="flex items-center gap-2 md:gap-3">
           {/* Logo element */}
-          <div className="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-            <Shield className="h-5 w-5" />
-          </div>
-          <span className="font-display font-bold tracking-tight text-slate-900 text-lg">
+          <img src="/icon.svg" alt="Deadline Guardian Logo" className="h-8 w-8 md:h-9 md:w-9 shrink-0 shadow-sm rounded-xl" />
+          <span className="font-display font-bold tracking-tight text-slate-900 text-base md:text-lg truncate max-w-[150px] sm:max-w-none">
             Deadline Guardian AI
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-mono text-slate-400 hidden md:inline-block">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          <span className="text-xs font-mono text-slate-400 hidden lg:inline-block">
             {todayLabel}
           </span>
           
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 md:py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
             <UserIcon className="h-4 w-4 text-indigo-500" />
-            <span className="text-slate-700 font-semibold">{user.name}</span>
+            <span className="text-slate-700 font-semibold truncate max-w-[100px]">{user.name}</span>
           </div>
+
+          <button
+            onClick={handleLogout}
+            className="md:hidden p-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all cursor-pointer"
+            title="Sign Out"
+          >
+            <LogOut className="h-4.5 w-4.5" />
+          </button>
 
           <button
             onClick={() => setShowRightDrawer(!showRightDrawer)}
             className={`p-2 rounded-lg border transition-all cursor-pointer ${
               showRightDrawer 
                 ? "bg-indigo-50 border-indigo-200 text-indigo-600" 
-                : "border-slate-250 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                : "border-slate-250 text-slate-500 hover:text-slate-800 hover:bg-slate-100 bg-white"
             }`}
             title="Toggle AI Assistive Tray"
           >
@@ -134,10 +140,10 @@ export default function App() {
       </header>
 
       {/* Main Container Workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         
-        {/* Left Side Navigation Sidebar */}
-        <nav className={`bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-all duration-300 relative shrink-0 z-10 ${
+        {/* Left Side Navigation Sidebar (Desktop) */}
+        <nav className={`hidden md:flex bg-slate-900 border-r border-slate-800 flex-col justify-between transition-all duration-300 relative shrink-0 z-10 ${
           sidebarExpanded ? "w-64" : "w-16"
         }`}>
           <div className="py-6 space-y-6 flex-1 flex flex-col">
@@ -200,7 +206,7 @@ export default function App() {
           <div className="p-4 border-t border-slate-800/60">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 py-2.5 px-4 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center md:justify-start gap-3 py-2.5 px-4 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
             >
               <LogOut className="h-4.5 w-4.5 shrink-0" />
               {sidebarExpanded && <span>Sign Out</span>}
@@ -209,7 +215,7 @@ export default function App() {
         </nav>
 
         {/* Dynamic Center Work Pane */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8 lg:p-10 scrollbar-thin">
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 pb-24 md:pb-8 md:p-8 lg:p-10 scrollbar-thin">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -217,6 +223,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.15 }}
+              className="h-full"
             >
               {activeTab === "dashboard" && (
                 <DashboardView
@@ -262,27 +269,78 @@ export default function App() {
         {/* Right Adaptive AI Strategist Side panel */}
         <AnimatePresence>
           {showRightDrawer && (
-            <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 350, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 220, damping: 26 }}
-              className="bg-white border-l border-slate-200 shrink-0 overflow-hidden flex flex-col h-full relative"
-            >
-              <div className="p-5 flex-1 overflow-y-auto space-y-6 scrollbar-thin">
-                
-                {/* 1. Stack chatbot memory logs widget */}
-                <ChatAdvisor tasksCount={tasks.length} />
+            <>
+              {/* Mobile Overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowRightDrawer(false)}
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-30 md:hidden"
+              />
+              
+              <motion.aside
+                initial={{ x: "100%", width: "100%", maxWidth: 350, opacity: 0 }}
+                animate={{ x: 0, width: "100%", maxWidth: 350, opacity: 1 }}
+                exit={{ x: "100%", width: "100%", maxWidth: 350, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 28 }}
+                className="fixed md:static inset-y-0 right-0 z-40 bg-white border-l border-slate-200 shrink-0 overflow-hidden flex flex-col h-full shadow-2xl md:shadow-none"
+              >
+                <div className="p-4 md:p-5 border-b border-slate-100 flex items-center justify-between md:hidden">
+                  <div className="flex items-center gap-2 text-indigo-600 font-bold">
+                    <Bot className="h-5 w-5" />
+                    <span>AI Strategist</span>
+                  </div>
+                  <button onClick={() => setShowRightDrawer(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-4 md:p-5 flex-1 overflow-y-auto space-y-6 scrollbar-thin">
+                  
+                  {/* 1. Stack chatbot memory logs widget */}
+                  <ChatAdvisor tasksCount={tasks.length} />
 
-                {/* 2. Stack voice conversation widget */}
-                <LiveVoiceWidget />
+                  {/* 2. Stack voice conversation widget */}
+                  <LiveVoiceWidget />
 
-              </div>
-            </motion.aside>
+                </div>
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
 
       </div>
+      
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 flex items-center justify-around z-20 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] px-2">
+        {[
+          { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+          { id: "tasks", label: "Tasks", icon: CheckSquare },
+          { id: "planner", label: "Planner", icon: Compass },
+          { id: "risk", label: "Risk", icon: Sparkles },
+          { id: "analytics", label: "Analytics", icon: BarChart3 },
+        ].map((tab) => {
+          const IconComp = tab.icon;
+          const isSelected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.id !== "risk") setSelectedTaskForRisk(null);
+              }}
+              className={`flex flex-col items-center justify-center py-4 px-2 flex-1 cursor-pointer transition-all relative ${
+                isSelected ? "text-indigo-600" : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <div className={`relative flex items-center justify-center p-1.5 rounded-xl transition-all duration-300 ${isSelected ? "bg-indigo-50" : ""}`}>
+                <IconComp className={`h-6 w-6 transition-transform duration-300 ${isSelected ? "scale-110" : ""}`} />
+              </div>
+              <span className={`text-[10px] font-semibold tracking-tight mt-1 transition-all duration-300 ${isSelected ? "opacity-100" : "opacity-0 h-0 mt-0 overflow-hidden"}`}>{tab.label}</span>
+            </button>
+          )
+        })}
+      </nav>
     </div>
   );
 }

@@ -29,3 +29,7 @@
 .pulse-primary {
   animation: pulse-ring 2s infinite ease-in-out;
 }
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}

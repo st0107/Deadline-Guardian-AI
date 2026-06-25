@@ -106,6 +106,89 @@ app.get("/api/auth/me", requireAuth, (req: AuthenticatedRequest, res) => {
   });
 });
 
+// --- OAUTH: GOOGLE ---
+app.get("/api/auth/google/url", (req, res) => {
+  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host;
+  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID || "",
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "email profile",
+    access_type: "offline",
+    prompt: "consent",
+  });
+
+  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+});
+
+app.get(["/auth/google/callback", "/auth/google/callback/"], async (req, res) => {
+  const { code } = req.query;
+  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host;
+  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+
+  try {
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: code as string,
+        client_id: process.env.GOOGLE_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+    
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      throw new Error(tokenData.error_description || "Failed to get token");
+    }
+
+    const userResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const userData = await userResponse.json();
+
+    let user = db.getUserByEmail(userData.email);
+    if (!user) {
+      user = db.createUser({
+        name: userData.name,
+        email: userData.email,
+        passwordHash: "google-oauth",
+      });
+      db.createActivityLog(user.id, "register", "Account Created via Google", `Welcome ${user.name}!`);
+    } else {
+      db.createActivityLog(user.id, "login", "User Login via Google", `Authenticated successfully.`);
+    }
+
+    const token = generateToken(user.id);
+    const safeUser = { id: user.id, name: user.name, email: user.email, productivityScore: user.productivityScore };
+
+    res.send(`
+      <html>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', token: '${token}', user: ${JSON.stringify(safeUser)} }, '*');
+              window.close();
+            } else {
+              window.location.href = '/';
+            }
+          </script>
+          <p>Authentication successful. You can close this window.</p>
+        </body>
+      </html>
+    `);
+  } catch (error: any) {
+    console.error("OAuth callback error:", error);
+    res.send(`<p>Authentication failed: ${error.message}</p>`);
+  }
+});
+
 // --- TASKS API WORKFLOWS ---
 
 // GET: list developer tasks
