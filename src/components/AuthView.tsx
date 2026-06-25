@@ -79,9 +79,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
         <div className="hidden md:flex p-8 md:p-12 bg-gradient-to-br from-indigo-700 via-indigo-800 to-indigo-900 flex-col justify-between text-indigo-100">
           <div>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-2xs">
-                <Shield className="h-5 w-5" />
-              </div>
+              <img src="/icon.svg" alt="Deadline Guardian Logo" className="h-10 w-10 shrink-0 shadow-sm rounded-xl border border-white/20" />
               <span className="font-display font-extrabold tracking-tight text-xl text-white">Deadline Guardian AI</span>
             </div>
             
@@ -107,9 +105,9 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
         </div>
         
         {/* Right Pane: Login Form */}
-        <div className="p-6 md:p-12 flex flex-col justify-center bg-white">
-          <div className="mb-8">
-            <div className="flex md:hidden items-center gap-2 mb-6">
+        <div className="p-5 sm:p-8 md:p-12 flex flex-col justify-center bg-white">
+          <div className="mb-5 md:mb-8">
+            <div className="flex md:hidden items-center gap-2 mb-4">
                <img src="/icon.svg" alt="Deadline Guardian Logo" className="h-8 w-8 shrink-0 shadow-sm rounded-xl" />
                <span className="font-display font-extrabold tracking-tight text-lg text-slate-900">Deadline Guardian AI</span>
             </div>
@@ -133,7 +131,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
             {!isLogin && (
               <div>
                 <label htmlFor="fullName" className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
@@ -146,7 +144,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                   placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 md:py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
                 />
               </div>
             )}
@@ -162,7 +160,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                 placeholder="yourname@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 md:py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
               />
             </div>
 
@@ -177,14 +175,14 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 md:py-3 px-4 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 font-medium transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold py-3.5 px-4 rounded-xl mt-6 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-md"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold py-3 md:py-3.5 px-4 rounded-xl mt-4 md:mt-6 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-md"
               aria-label={isLogin ? "Login with email" : "Register with email"}
             >
               {loading ? (
@@ -203,7 +201,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </button>
           </form>
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-4 md:mt-6 flex items-center justify-between">
             <div className="h-px bg-slate-200 flex-1"></div>
             <span className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">OR</span>
             <div className="h-px bg-slate-200 flex-1"></div>
@@ -212,7 +210,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
           <button
             onClick={handleGoogleAuth}
             disabled={loading}
-            className="w-full bg-white hover:bg-slate-50 text-slate-700 text-base font-bold py-3.5 px-4 rounded-xl mt-6 flex items-center justify-center gap-3 transition-all disabled:opacity-50 cursor-pointer shadow-sm border border-slate-200"
+            className="w-full bg-white hover:bg-slate-50 text-slate-700 text-base font-bold py-3 md:py-3.5 px-4 rounded-xl mt-4 md:mt-6 flex items-center justify-center gap-3 transition-all disabled:opacity-50 cursor-pointer shadow-sm border border-slate-200"
             aria-label="Continue with Google"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -224,7 +222,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             <span>Continue with Google</span>
           </button>
 
-          <div className="mt-8 text-center border-t border-slate-100 pt-6">
+          <div className="mt-5 md:mt-8 text-center border-t border-slate-100 pt-4 md:pt-6">
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
