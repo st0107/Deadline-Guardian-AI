@@ -9,6 +9,7 @@ import RiskCenterView from "./components/RiskCenterView";
 import AnalyticsView from "./components/AnalyticsView";
 import ChatAdvisor from "./components/ChatAdvisor";
 import LiveVoiceWidget from "./components/LiveVoiceWidget";
+import Walkthrough from "./components/Walkthrough";
 import {
   Shield,
   LayoutDashboard,
@@ -35,6 +36,7 @@ export default function App() {
   // Layout Controls
   const [showRightDrawer, setShowRightDrawer] = useState(true);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   const fetchUserProfileAndTasks = async () => {
     if (!token) return;
@@ -42,6 +44,9 @@ export default function App() {
       const [profile, taskList] = await Promise.all([api.getMe(), api.getTasks()]);
       setUser(profile);
       setTasks(taskList);
+      if (!localStorage.getItem(`dg_walkthrough_${profile.id}`)) {
+        setShowWalkthrough(true);
+      }
     } catch (_) {
       // Token expired or invalid, drop
       handleLogout();
@@ -57,6 +62,9 @@ export default function App() {
     setToken(t);
     setUser(u);
     setActiveTab("dashboard");
+    if (!localStorage.getItem(`dg_walkthrough_${u.id}`)) {
+      setShowWalkthrough(true);
+    }
   };
 
   const handleLogout = () => {
@@ -349,6 +357,17 @@ export default function App() {
           )
         })}
       </nav>
+
+      <AnimatePresence>
+        {showWalkthrough && (
+          <Walkthrough 
+            onComplete={() => {
+              localStorage.setItem(`dg_walkthrough_${user.id}`, "true");
+              setShowWalkthrough(false);
+            }} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
