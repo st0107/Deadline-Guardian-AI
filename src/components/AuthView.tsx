@@ -34,7 +34,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("/api/auth/google/url");
+      const res = await fetch(`/api/auth/google/url?origin=${encodeURIComponent(window.location.origin)}`);
       if (!res.ok) throw new Error("Failed to get Google Auth URL");
       const { url } = await res.json();
       

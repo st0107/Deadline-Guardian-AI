@@ -108,9 +108,8 @@ app.get("/api/auth/me", requireAuth, (req: AuthenticatedRequest, res) => {
 
 // --- OAUTH: GOOGLE ---
 app.get("/api/auth/google/url", (req, res) => {
-  const protocol = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers.host;
-  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+  const origin = req.query.origin as string || process.env.APP_URL || `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}`;
+  const redirectUri = `${origin}/auth/google/callback`;
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID || "",
@@ -119,16 +118,15 @@ app.get("/api/auth/google/url", (req, res) => {
     scope: "email profile",
     access_type: "offline",
     prompt: "consent",
+    state: redirectUri,
   });
 
   res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
 app.get(["/auth/google/callback", "/auth/google/callback/"], async (req, res) => {
-  const { code } = req.query;
-  const protocol = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers.host;
-  const redirectUri = `${protocol}://${host}/auth/google/callback`;
+  const { code, state } = req.query;
+  const redirectUri = (state as string) || process.env.APP_URL + "/auth/google/callback" || `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}/auth/google/callback`;
 
   try {
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
