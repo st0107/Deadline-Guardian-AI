@@ -54,6 +54,54 @@ app.post("/api/auth/register", async (req, res) => {
     // Initial onboarding log
     db.createActivityLog(user.id, "register", "Account Created", `Welcome ${name}! Deadline Guardian AI is initialized.`);
 
+    // Feature Demo: Pre-populate some tasks for new users to demonstrate capabilities
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    db.createTask(user.id, {
+      title: "Review Q3 Marketing Strategy",
+      deadline: tomorrow.toISOString(),
+      priority: "high",
+      effort: 3,
+      riskScore: 75,
+      riskReason: "High priority task due tomorrow. Immediate attention required to avoid missing the deadline.",
+      recommendations: ["Allocate 3 uninterrupted hours today", "Delegate minor tasks to focus on review"]
+    });
+
+    db.createTask(user.id, {
+      title: "Update Project Documentation",
+      deadline: nextWeek.toISOString(),
+      priority: "medium",
+      effort: 2,
+      riskScore: 20,
+      riskReason: "Ample time available before deadline.",
+      recommendations: ["Draft sections iteratively", "Review with team before finalizing"]
+    });
+    
+    db.createTask(user.id, {
+      title: "Prepare Slide Deck for All-Hands",
+      deadline: today.toISOString(),
+      priority: "high",
+      effort: 4,
+      riskScore: 90,
+      riskReason: "Due today with significant effort required. High risk of incomplete delivery.",
+      recommendations: ["Start immediately", "Use existing templates to save time", "Ask a colleague to proofread"]
+    });
+
+    const completedTask = db.createTask(user.id, {
+      title: "Weekly Sync with Design Team",
+      deadline: new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      priority: "low",
+      effort: 1,
+      riskScore: 0,
+      riskReason: "Completed on time.",
+      recommendations: []
+    });
+    db.updateTask(completedTask.id, { statusKey: "completed" });
+
     res.status(201).json({
       token,
       user: { id: user.id, name: user.name, email: user.email, productivityScore: user.productivityScore },

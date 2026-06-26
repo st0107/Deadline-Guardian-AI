@@ -206,13 +206,13 @@ export default function App() {
             {sidebarExpanded && (
               <div className="mt-auto px-4 py-2">
                 <div className="bg-slate-800 rounded-xl p-4 border border-slate-700/50">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Gemini Live Status</p>
+                  <p className="text-[10px] font-bold text-white uppercase tracking-wider mb-2">Gemini Live Status</p>
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    <span className="text-xs text-slate-250 font-medium">Predicting Risks...</span>
+                    <span className="text-xs text-white font-medium">Predicting Risks...</span>
                   </div>
                 </div>
               </div>
@@ -222,7 +222,7 @@ export default function App() {
           <div className="p-4 border-t border-slate-800/60">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center md:justify-start gap-3 py-2.5 px-4 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center md:justify-start gap-3 py-2.5 px-4 rounded-lg text-sm font-medium bg-[#4f39f6] text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm"
             >
               <LogOut className="h-4.5 w-4.5 shrink-0" />
               {sidebarExpanded && <span>Sign Out</span>}
