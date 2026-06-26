@@ -23,7 +23,7 @@ Traditional todo systems suffer from *reminder ignoring syndrome*. Deadline Guar
 |  | JWT Guard Router Middleware (Enforces session security isolation)           |  |
 |  +-----------------------------------------------------------------------------+  |
 |  +-----------------------------------------------------------------------------+  |
-|  | WebSockets Handler (pcmToBase64 bridging to Gemini Live Session)            |  |
+|  | WebSockets Handler (Real-Time Gemini Live Session with Tool Calling)        |  |
 |  +-----------------------------------------------------------------------------+  |
 |  +--------------------+   +---------------------+   +--------------------------+  |
 |  | localDb Store Engine|  | Express Controllers |   | @google/genai Service    |  |
@@ -35,6 +35,7 @@ Traditional todo systems suffer from *reminder ignoring syndrome*. Deadline Guar
 |   +----------------------------+                            +-----------------+   |
 |   | /data/database.json        |                            | gemini-3.5-flash|   |
 |   +----------------------------+                            | gemini-3.1-pro  |   |
+|                                                             | gemini-3.1-flash-live-preview|
 +-------------------------------------------------------------+-----------------+
 ```
 
@@ -42,6 +43,7 @@ Traditional todo systems suffer from *reminder ignoring syndrome*. Deadline Guar
 1. **Full-Stack Proximity (Express + Vite Proxy)**: The code organizes critical API keys on the server-side, securing them from standard browser inspection.
 2. **WebSocket Port Integration**: Running the WebSockets listener connected directly on the same Node `http` server on port `3000` bypasses standard sandboxed ingress port bans, guaranteeing safe, lag-free audio stream transport.
 3. **Structured JSON Schemas with Deep-Reasoning**: General tasks are segmented to lightweight `gemini-3.5-flash` for rate limits protection. Complex calculations like *Predictive Deadline Threat Risk score (0-100)* are allocated to `gemini-3.1-pro-preview` with **High Thinking Mode** active to safely weigh overlapping study timelines and hours.
+4. **Real-Time Voice with Function Calling**: Integrating the Gemini Live API allows users to converse fluidly with their assistant. The AI executes server-side functions (create, read, update, delete tasks) based on natural conversational cues, immediately syncing with the client UI.
 
 ---
 
@@ -68,13 +70,13 @@ Traditional todo systems suffer from *reminder ignoring syndrome*. Deadline Guar
     ├── api.ts             # Client HTTP Fetcher (with dynamic token integration)
     └── components/
         ├── AuthView.tsx       # Secure Login & Registration Panel
-        ├── DashboardView.tsx # Statistics Hub & Critical Risk indicators
+        ├── DashboardView.tsx  # Statistics Hub & Critical Risk indicators
         ├── TaskView.tsx       # Normal + Natural NLP + Voice Recorder task creator
         ├── PlannerView.tsx    # Hour-by-hour timeline calendars & AI Advice checklists
         ├── RiskCenterView.tsx # Real-time speedometer dial & AI explanations
-        ├── AnalyticsView.tsx # Pie priority counts, completion line charts (Recharts)
+        ├── AnalyticsView.tsx  # Pie priority counts, completion line charts (Recharts)
         ├── ChatAdvisor.tsx    # Scrollable sidebar panel strategic chat with Gemini Pro
-        └── LiveVoiceWidget.tsx# Desktop voice dial capturing mic and executing audio play queue
+        └── LiveVoiceWidget.tsx# Desktop voice widget connected to Gemini Live API with UI sync
 ```
 
 ---
@@ -114,7 +116,7 @@ interface Task {
 
 ---
 
-## 4. REST API Design Reference
+## 4. REST API & WebSocket Design Reference
 
 | Method | Route | Authentication | Payload Schema / Output Summary |
 | :--- | :--- | :--- | :--- |
@@ -124,10 +126,12 @@ interface Task {
 | **GET** | `/api/tasks` | JWT Required | Returns list of tasks for the active account. |
 | **POST** | `/api/tasks` | JWT Required | Input: `{ title, deadline, effort, priority }` OR `{ textPrompt }` for AI parsing. Returns created Task with automated prediction risk metrics already embedded. |
 | **PUT** | `/api/tasks/:id` | JWT Required | Updates properties, regenerates risk scores on duration shift, logs completions. |
+| **DELETE** | `/api/tasks/:id` | JWT Required | Deletes a specified task. |
 | **POST** | `/api/ai/daily-plan` | JWT Required | Input: `{ targetDate, availableHours }` -> Configures hour blocks. |
 | **POST** | `/api/ai/replan` | JWT Required | Automatically pulls unfinished overdue jobs into an auto-arranged rescue map. |
 | **POST** | `/api/ai/transcribe` | JWT Required | Input: `{ audioData (base64 wav/ogg) }` -> Returns text transcription using Gemini Flash. |
 | **POST** | `/api/ai/chat` | JWT Required | Input: `{ prompt }` -> Strategic advisor chat, preloaded with active user tasks context. |
+| **WS** | `/?token=...` | JWT Required | Bidirectional audio streaming connection mapped to Gemini Live API with active Tool Execution. |
 
 ---
 
@@ -142,7 +146,7 @@ interface Task {
    Analyze this natural description and extract actionable title, YYYY-MM-DD deadline (calculate relative keywords such as Friday, tomorrow, in 3 weeks), effort hours, and priority enum."
   ```
 
-### Feature 3: Deadline Risk Evaluation (Deep Strategic Reasoning)
+### Feature 2: Deadline Risk Evaluation (Deep Strategic Reasoning)
 * **Model**: `gemini-3.1-pro-preview` (Leverages **ThinkingLevel.HIGH** parameters to balance multiple timeline constraints).
 * **Prompt Rule**:
   ```ts
@@ -151,6 +155,11 @@ interface Task {
    Compare it against competing study/work active priorities: ${otherActiveTasks}.
    Calculate a threat coefficient (0-100), define the exact scheduler bottleneck, and generate a step-by-step mitigation checklist."
   ```
+
+### Feature 3: Real-Time Voice Assistant with Tool Execution
+* **Model**: `gemini-3.1-flash-live-preview` (Ultra-low latency streaming voice API).
+* **Config**: `Modality.AUDIO`, system instruction rules, tool function declarations (`getTasks`, `createTask`, `updateTask`, `deleteTask`).
+* **Implementation Details**: Audio is captured via `LiveVoiceWidget` as 16kHz PCM, streamed across WebSockets to the Express server, and bridged directly into the Gemini Live Session. The model can choose to invoke server-side tools (like creating or modifying a task), which run securely in the backend, return results to the AI, and emit `refreshTasks` sync events to update the React UI seamlessly.
 
 ---
 
@@ -162,11 +171,11 @@ interface Task {
 
 ### **Slide 2: The Core Product Core pillars**
 * **Predictive Risk Assessment**: Active deadlines are weighed against other tasks using Gemini 3.1 Pro to output an interactive Threat Dial.
-* **NLP & Voice Workspace**: Users speak naturally into their mic. Gemini transcribes the audio and extracts a structured task profile instantly.
+* **Interactive Voice Management**: Users speak naturally into their mic to review, create, edit, or delete tasks. Gemini handles the audio and seamlessly executes background system tools that reflect instantly on the UI.
 * **Smart Rescue Replanning**: When tasks are left unfinished, a simple click redirects remaining work into an optimized rescue day plan.
 
 ### **Slide 3: Technical Showcase (Under the Hood)**
-* **Google's Gemini 3 SDK**: Standardize pipeline tasks to `gemini-3.5-flash` JSON schemas, complex risk predictions to `gemini-3.1-pro-preview` with High Thinking mode, and live interactive vocal guidance to the ultra-low-latency `gemini-3.1-flash-live-preview` via WebSockets.
+* **Google's Gemini SDKs**: Standardize pipeline tasks to `gemini-3.5-flash` JSON schemas, complex risk predictions to `gemini-3.1-pro-preview` with High Thinking mode, and live interactive vocal guidance to the ultra-low-latency `gemini-3.1-flash-live-preview` via WebSockets.
 * **Architecture**: Complete Express Node endpoint server, JWT-protected accounts, typesafe database cache persisting to a lightweight storage array, and a gorgeous slate-dark responsive React front-end.
 
 ---

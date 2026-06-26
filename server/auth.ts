@@ -32,6 +32,18 @@ export function generateToken(userId: string): string {
 }
 
 /**
+ * Verify a JWT token and return the User if valid
+ */
+export function verifyAuthToken(token: string): User | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    return db.getUserById(decoded.userId) || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * Express middleware to enforce authentication via Authorization headers
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {

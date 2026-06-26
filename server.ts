@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { db, Task, User } from "./server/db";
-import { requireAuth, generateToken, verifyPassword, hashPassword, AuthenticatedRequest } from "./server/auth";
+import { requireAuth, generateToken, verifyPassword, hashPassword, AuthenticatedRequest, verifyAuthToken } from "./server/auth";
 import {
   analyzeNaturalLanguageTask,
   predictDeadlineRisk,
@@ -18,7 +18,7 @@ import {
   transcribeAudio,
   getGeneralChatResponse,
 } from "./server/ai";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 
 const app = express();
 const PORT = 3000;
@@ -629,8 +629,19 @@ async function startServer() {
   });
 
   // Handle Gemini Live Audio WebSockets using Zephyr speech
-  wss.on("connection", async (clientWs: WebSocket) => {
+  wss.on("connection", async (clientWs: WebSocket, request) => {
     console.log("Real-time Gemini Voice socket successfully connected.");
+
+    const url = new URL(request.url || "", `http://${request.headers.host}`);
+    const token = url.searchParams.get("token");
+    const user = token ? verifyAuthToken(token) : null;
+
+    if (!user) {
+       console.log("Unauthorized websocket connection");
+       clientWs.send(JSON.stringify({ error: "Unauthorized." }));
+       clientWs.close();
+       return;
+    }
 
     const genAi = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -650,7 +661,54 @@ async function startServer() {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
           },
           systemInstruction:
-            "You are a welcoming real-time productivity assistant for Deadline Guardian AI. Keep your voice responses supportive, quick, and conversational. Give guidance on deadlines.",
+            "You are a welcoming real-time productivity assistant for Deadline Guardian AI. Keep your voice responses supportive, quick, and conversational. Give guidance on deadlines. You can read, create, update, and delete the user's tasks. Use the tools provided when the user requests help managing their schedule. ALWAYS call getTasks first to find the correct taskId before updating or deleting a task.",
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: "getTasks",
+                  description: "Get all current tasks for the user. Use this to find task IDs.",
+                  parameters: { type: Type.OBJECT, properties: {} }
+                },
+                {
+                  name: "createTask",
+                  description: "Create a new task",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING, description: "Title of the task" },
+                      deadline: { type: Type.STRING, description: "Deadline date string in ISO format (e.g. 2026-06-25)" },
+                      priority: { type: Type.STRING, description: "Priority: low, medium, high" }
+                    },
+                    required: ["title", "deadline", "priority"]
+                  }
+                },
+                {
+                  name: "updateTask",
+                  description: "Update an existing task's status. IMPORTANT: Call getTasks first to get the taskId.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      taskId: { type: Type.STRING },
+                      statusKey: { type: Type.STRING, description: "New status: pending, started, or completed" }
+                    },
+                    required: ["taskId", "statusKey"]
+                  }
+                },
+                {
+                  name: "deleteTask",
+                  description: "Delete a task by ID. IMPORTANT: Call getTasks first to get the taskId.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      taskId: { type: Type.STRING }
+                    },
+                    required: ["taskId"]
+                  }
+                }
+              ]
+            }
+          ]
         },
         callbacks: {
           onmessage: (message) => {
@@ -660,6 +718,64 @@ async function startServer() {
             }
             if (message.serverContent?.interrupted) {
               clientWs.send(JSON.stringify({ interrupted: true }));
+            }
+            if (message.toolCall) {
+              const functionCalls = message.toolCall.functionCalls;
+              if (functionCalls && functionCalls.length > 0) {
+                const functionResponses: any[] = [];
+                for (const call of functionCalls) {
+                  const name = call.name;
+                  const args = call.args || {};
+                  let resultData: any = {};
+                  try {
+                    if (name === "getTasks") {
+                      resultData = { tasks: db.getTasks(user.id) };
+                    } else if (name === "createTask") {
+                       const task = db.createTask(user.id, {
+                         title: args.title as string,
+                         deadline: args.deadline as string,
+                         priority: (args.priority || "medium") as any,
+                         statusKey: "pending",
+                         effort: 1,
+                         riskScore: 0,
+                         riskReason: "Not analyzed yet",
+                         recommendations: []
+                       });
+                       resultData = task;
+                       clientWs.send(JSON.stringify({ refreshTasks: true }));
+                    } else if (name === "updateTask") {
+                       const taskId = args.taskId as string;
+                       const task = db.getTask(taskId);
+                       if (task && task.userId === user.id) {
+                          resultData = db.updateTask(taskId, { statusKey: args.statusKey as any });
+                          clientWs.send(JSON.stringify({ refreshTasks: true }));
+                       } else {
+                          resultData = { error: "Task not found or unauthorized" };
+                       }
+                    } else if (name === "deleteTask") {
+                       const taskId = args.taskId as string;
+                       const task = db.getTask(taskId);
+                       if (task && task.userId === user.id) {
+                          db.deleteTask(taskId);
+                          resultData = { success: true };
+                          clientWs.send(JSON.stringify({ refreshTasks: true }));
+                       } else {
+                          resultData = { error: "Task not found or unauthorized" };
+                       }
+                    }
+                  } catch (e: any) {
+                     resultData = { error: e.message };
+                  }
+                  
+                  functionResponses.push({
+                    id: call.id,
+                    name: call.name,
+                    response: resultData
+                  });
+                }
+                
+                liveSession.sendToolResponse({ functionResponses });
+              }
             }
           },
         },

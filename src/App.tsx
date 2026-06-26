@@ -77,6 +77,14 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const handleRefresh = () => {
+      refetchTasksOnly();
+    };
+    window.addEventListener("dg_refresh_tasks", handleRefresh);
+    return () => window.removeEventListener("dg_refresh_tasks", handleRefresh);
+  }, [token]);
+
   const handleSelectTaskRiskRedirect = (taskId: string) => {
     setSelectedTaskForRisk(taskId);
     setActiveTab("risk");

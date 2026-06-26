@@ -29,7 +29,8 @@ export default function LiveVoiceWidget() {
 
       // 2. Open client-side WebSockets
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/api/live-stream`;
+      const token = localStorage.getItem("dg_jwt_token");
+      const wsUrl = `${protocol}//${window.location.host}/api/live-stream${token ? `?token=${token}` : ""}`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -52,6 +53,9 @@ export default function LiveVoiceWidget() {
           if (payload.interrupted) {
             // Drop current and next play buffers to clear overlap noise
             nextStartTimeRef.current = 0;
+          }
+          if (payload.refreshTasks) {
+            window.dispatchEvent(new Event("dg_refresh_tasks"));
           }
           if (payload.error) {
             setErrorText(payload.error);
