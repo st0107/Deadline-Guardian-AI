@@ -13,6 +13,9 @@ export default defineConfig(() => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        workbox: {
+          navigateFallbackDenylist: [/^\/api\//, /^\/auth\/google\/callback/],
+        },
         manifest: {
           name: 'Deadline Guardian AI',
           short_name: 'DeadlineAI',

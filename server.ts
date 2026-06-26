@@ -126,7 +126,7 @@ app.get("/api/auth/google/url", (req, res) => {
 
 app.get(["/auth/google/callback", "/auth/google/callback/"], async (req, res) => {
   const { code, state } = req.query;
-  const redirectUri = (state as string) || process.env.APP_URL + "/auth/google/callback" || `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}/auth/google/callback`;
+  const redirectUri = (state as string) || (process.env.APP_URL ? process.env.APP_URL + "/auth/google/callback" : `${req.headers["x-forwarded-proto"] || "http"}://${req.headers.host}/auth/google/callback`);
 
   try {
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
