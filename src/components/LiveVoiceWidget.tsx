@@ -2,20 +2,95 @@ import React, { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, PhoneCall, PhoneOff, Radio, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
 export default function LiveVoiceWidget() {
   const [active, setActive] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState("Offline");
   const [errorText, setErrorText] = useState("");
+  const [wakeWordListening, setWakeWordListening] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
   const outputAudioCtxRef = useRef<AudioContext | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // Audio Playback Queue offsets
   const nextStartTimeRef = useRef<number>(0);
+
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const connectingRef = useRef(connecting);
+  useEffect(() => {
+    connectingRef.current = connecting;
+  }, [connecting]);
+
+  useEffect(() => {
+    if (!SpeechRecognition) return;
+
+    if (!recognitionRef.current) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            const transcript = event.results[i][0].transcript.toLowerCase();
+            if (!activeRef.current && !connectingRef.current && (transcript.includes("hello guardian") || transcript.includes("hello deadline guardian"))) {
+              window.dispatchEvent(new CustomEvent("dg_start_voice"));
+            }
+            if (activeRef.current && (transcript.includes("go offline") || transcript.includes("stop guardian"))) {
+              window.dispatchEvent(new CustomEvent("dg_stop_voice"));
+            }
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        // Restart recognition if it ends
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {}
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+
+    try {
+      recognitionRef.current.start();
+      setWakeWordListening(true);
+    } catch (e) {}
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          setWakeWordListening(false);
+        } catch (e) {}
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStart = () => startVoiceSession();
+    const handleStop = () => stopVoiceSession();
+    window.addEventListener("dg_start_voice", handleStart);
+    window.addEventListener("dg_stop_voice", handleStop);
+    return () => {
+      window.removeEventListener("dg_start_voice", handleStart);
+      window.removeEventListener("dg_stop_voice", handleStop);
+    };
+  }, []);
 
   const startVoiceSession = async () => {
     setErrorText("");
@@ -263,12 +338,15 @@ export default function LiveVoiceWidget() {
 
       <div className="text-[11px] text-slate-505 text-slate-500 font-medium leading-normal text-center max-w-xs pt-2">
         {active ? (
-          <span className="text-indigo-600 flex items-center justify-center gap-1 font-bold">
-            <Volume2 className="h-4.5 w-4.5 animate-pulse text-indigo-600" />
-            <span>Spoken speech translation and logic stream are active...</span>
+          <span className="text-indigo-600 flex flex-col items-center justify-center gap-1 font-bold">
+            <div className="flex items-center gap-1">
+              <Volume2 className="h-4.5 w-4.5 animate-pulse text-indigo-600" />
+              <span>Voice diagnostic active...</span>
+            </div>
+            <span className="text-xs font-normal mt-1 opacity-80">Say "go offline" or tap to stop</span>
           </span>
         ) : (
-          "Tap the dial trigger to start a spoken voice productivity diagnostic with Gemini."
+          wakeWordListening ? "Say \"Hello Guardian AI\" or tap the dial to start a spoken voice diagnostic." : "Tap the dial trigger to start a spoken voice productivity diagnostic with Gemini."
         )}
       </div>
     </div>
