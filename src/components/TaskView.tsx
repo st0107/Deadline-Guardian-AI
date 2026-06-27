@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   PlayCircle,
   HelpCircle,
-  Edit2
+  Edit2,
+  Clock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -41,6 +42,8 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
   const [deadline, setDeadline] = useState("");
   const [effort, setEffort] = useState("2");
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
+  const [time, setTime] = useState("");
+  const [reminder, setReminder] = useState<string>("none");
 
   // Editing Task
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -48,6 +51,8 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
   const [editDeadline, setEditDeadline] = useState("");
   const [editEffort, setEditEffort] = useState("2");
   const [editPriority, setEditPriority] = useState<"high" | "medium" | "low">("medium");
+  const [editTime, setEditTime] = useState("");
+  const [editReminder, setEditReminder] = useState<string>("none");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const startEdit = (task: Task) => {
@@ -56,6 +61,8 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
     setEditDeadline(task.deadline);
     setEditEffort(task.effort.toString());
     setEditPriority(task.priority);
+    setEditTime(task.time || "");
+    setEditReminder(task.reminder || "none");
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -68,6 +75,8 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
         deadline: editDeadline,
         effort: Number(editEffort),
         priority: editPriority,
+        time: editTime,
+        reminder: editReminder,
       });
       setEditingTask(null);
       onTasksUpdated();
@@ -194,12 +203,16 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
         deadline,
         effort: Number(effort),
         priority,
+        time,
+        reminder,
       });
       setSuccessMsg("Task successfully established with dynamic risk predictions.");
       setTitle("");
       setDeadline("");
       setEffort("2");
       setPriority("medium");
+      setTime("");
+      setReminder("none");
       onTasksUpdated();
       setTimeout(() => setSuccessMsg(""), 4000);
     } catch (err: any) {
@@ -244,12 +257,9 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
 
   const formatDate = (dStr: string) => {
     try {
-      const parts = dStr.split("-");
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      }
-      return dStr;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     } catch (_) {
       return dStr;
     }
@@ -396,7 +406,7 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
               ) : (
                 /* Manual Custom Form */
                 <form onSubmit={handleManualCreate} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                  <div className="md:col-span-1">
+                  <div className="md:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                       Task Title
                     </label>
@@ -424,37 +434,68 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                        <Hourglass className="h-3.5 w-3.5 text-slate-400" />
-                        <span>Effort (Hrs)</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        required
-                        value={effort}
-                        onChange={(e) => setEffort(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                        <ArrowUpCircle className="h-3.5 w-3.5 text-slate-400" />
-                        <span>Priority</span>
-                      </label>
-                      <select
-                        value={priority}
-                        onChange={(e) => setPriority(e.target.value as any)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
-                      >
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Scheduled Time</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <Hourglass className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Effort (Hrs)</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      required
+                      value={effort}
+                      onChange={(e) => setEffort(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <ArrowUpCircle className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Priority</span>
+                    </label>
+                    <select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value as any)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                    >
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Reminder</span>
+                    </label>
+                    <select
+                      value={reminder}
+                      onChange={(e) => setReminder(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+                    >
+                      <option value="none">No reminder</option>
+                      <option value="0min">At task time</option>
+                      <option value="15min">15 mins before</option>
+                      <option value="30min">30 mins before</option>
+                      <option value="1hour">1 hour before</option>
+                      <option value="1day">1 day before</option>
+                    </select>
                   </div>
 
                   <button
@@ -597,6 +638,23 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                             <Calendar className="h-3.5 w-3.5 text-slate-400" />
                             <span>Due {formatDate(t.deadline)}</span>
                           </span>
+                          {t.time && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 text-indigo-600 font-semibold">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{t.time}</span>
+                              </span>
+                            </>
+                          )}
+                          {t.reminder && t.reminder !== "none" && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] border border-emerald-105">
+                                <span>🔔 {t.reminder === "0min" ? "at task time" : t.reminder === "15min" ? "15m prior" : t.reminder === "30min" ? "30m prior" : t.reminder === "1hour" ? "1h prior" : "1d prior"}</span>
+                              </span>
+                            </>
+                          )}
                           <span>•</span>
                           <span className="flex items-center gap-1">
                             <Hourglass className="h-3.5 w-3.5 text-slate-400" />
@@ -694,6 +752,17 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                                 <Calendar className="h-3.5 w-3.5 text-slate-400" />
                                 <span>{formatDate(t.deadline)}</span>
                               </span>
+                              {t.time && (
+                                <span className="flex items-center gap-0.5 text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded text-[10px]">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{t.time}</span>
+                                </span>
+                              )}
+                              {t.reminder && t.reminder !== "none" && (
+                                <span className="flex items-center gap-0.5 text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] border border-emerald-100/30">
+                                  <span>🔔 {t.reminder === "0min" ? "At task" : t.reminder === "15min" ? "15m" : t.reminder === "30min" ? "30m" : t.reminder === "1hour" ? "1h" : "1d"}</span>
+                                </span>
+                              )}
                            </div>
 
                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-auto">
@@ -787,6 +856,38 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                     onChange={(e) => setEditDeadline(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Scheduled Time</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                      <span>Reminder</span>
+                    </label>
+                    <select
+                      value={editReminder}
+                      onChange={(e) => setEditReminder(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                    >
+                      <option value="none">No reminder</option>
+                      <option value="0min">At task time</option>
+                      <option value="15min">15 mins before</option>
+                      <option value="30min">30 mins before</option>
+                      <option value="1hour">1 hour before</option>
+                      <option value="1day">1 day before</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

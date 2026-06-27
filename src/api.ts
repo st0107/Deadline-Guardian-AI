@@ -55,7 +55,7 @@ export const api = {
     return res.json();
   },
 
-  async createTask(taskData: { title?: string; deadline?: string; effort?: number; priority?: string; textPrompt?: string }): Promise<Task> {
+  async createTask(taskData: { title?: string; deadline?: string; effort?: number; priority?: string; textPrompt?: string; time?: string; reminder?: string }): Promise<Task> {
     const res = await fetch("/api/tasks", {
       method: "POST",
       headers: getHeaders(),

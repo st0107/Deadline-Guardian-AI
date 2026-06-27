@@ -92,6 +92,8 @@ Please analyze this natural language instruction for a task and extract:
 2. Task Deadline in "YYYY-MM-DD" format. If a relative date is stated (e.g. "Friday", "next week", "in 3 weeks", "tomorrow"), calculate it relative to today: ${currentLocalTime}. If no date is given, default to 3 days from today.
 3. Estimated effort in hours (integer). Understimate/overestimate based on task description. Default is 2 hours.
 4. Priority ("high", "medium", or "low") based on deadline proximity, keyword urgency, or difficulty.
+5. Task Scheduled Time: If a specific time is mentioned (e.g. "at 3:30 PM", "9am", "18:00"), convert it to 24-hour "HH:MM" format (e.g., "15:30", "09:00"). If no time is explicitly mentioned, return an empty string "".
+6. Reminder Interval: If a reminder or alert is mentioned (e.g., "remind me 30 mins before", "alert me at that time", "reminder 1 hour prior"), map it to one of these values: "none", "0min", "15min", "30min", "1hour", "1day". If not specified, default to "none".
 
 Input task description: "${textInput}"
 `;
@@ -122,8 +124,17 @@ Input task description: "${textInput}"
               description: "Task priority level",
               enum: ["high", "medium", "low"],
             },
+            time: {
+              type: Type.STRING,
+              description: "Extracted start time of the task in HH:MM 24h format, or empty string if not explicitly mentioned",
+            },
+            reminder: {
+              type: Type.STRING,
+              description: "Extracted reminder offset from: none, 0min, 15min, 30min, 1hour, 1day",
+              enum: ["none", "0min", "15min", "30min", "1hour", "1day"],
+            },
           },
-          required: ["title", "deadline", "effort", "priority"],
+          required: ["title", "deadline", "effort", "priority", "time", "reminder"],
         },
       },
     });
@@ -171,7 +182,9 @@ Input task description: "${textInput}"
       title: titleVal || "Voice/Text Extracted Task",
       deadline: deadlineStr,
       effort: effortEst,
-      priority: prio
+      priority: prio,
+      time: "",
+      reminder: "none"
     };
   }
 }
@@ -604,7 +617,7 @@ Today's current local time is: ${currentLocalTime}.
 User's active (non-completed) tasks:
 ${currentTasks
   .filter((t) => t.statusKey !== "completed")
-  .map((t) => `- "${t.title}" [Deadline: ${t.deadline}, Effort: ${t.effort}h, Priority: ${t.priority}, Risk: ${t.riskScore}%]`)
+  .map((t) => `- "${t.title}" [ID: ${t.id}, Deadline: ${t.deadline}, Time: ${t.time || "none"}, Reminder: ${t.reminder || "none"}, Effort: ${t.effort}h, Priority: ${t.priority}, Risk: ${t.riskScore}%]`)
   .join("\n") || "No current active tasks. Ask the user what they have on their radar!"}
 
 Instructions:
@@ -612,6 +625,48 @@ Instructions:
 2. Be brief, actionable, and encouraging. Focus heavily on practical steps.
 3. If they ask a complex strategy question (e.g., "How should I structure my work?", "I am feeling overwhelmed"), leverage deep reasoning and offer micro-steps.
 4. Keep conversations human, encouraging, and free from tech jargon.
+
+5. SPECIAL SCHEDULING ABILITY: If the user asks to create, update, or delete a task (including specifying a start time or reminder offset), write a natural, friendly response. At the VERY END of your message, append a structured command wrapped in [COMMAND] and [/COMMAND] tags. Do not output multiple command blocks.
+
+Format for creating a task:
+[COMMAND]
+{
+  "action": "create",
+  "task": {
+    "title": "Task title here",
+    "deadline": "YYYY-MM-DD",
+    "priority": "low" | "medium" | "high",
+    "time": "HH:MM", // if specified (e.g., "15:30"), otherwise empty or omit
+    "reminder": "none" | "0min" | "15min" | "30min" | "1hour" | "1day" // if specified, otherwise "none"
+  }
+}
+[/COMMAND]
+
+Format for updating a task:
+[COMMAND]
+{
+  "action": "update",
+  "taskId": "the-task-id-to-update",
+  "task": {
+    "title": "New title (optional)",
+    "deadline": "New deadline YYYY-MM-DD (optional)",
+    "priority": "low" | "medium" | "high" (optional),
+    "time": "HH:MM" (optional),
+    "reminder": "none" | "0min" | "15min" | "30min" | "1hour" | "1day" (optional),
+    "statusKey": "pending" | "started" | "completed" (optional)
+  }
+}
+[/COMMAND]
+
+Format for deleting a task:
+[COMMAND]
+{
+  "action": "delete",
+  "taskId": "the-task-id-to-delete"
+}
+[/COMMAND]
+
+Always resolve relative dates (like "tomorrow", "next Friday", "today") to exact "YYYY-MM-DD" dates using the current local time before writing the command block!
 `;
 
   try {

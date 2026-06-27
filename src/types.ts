@@ -17,6 +17,8 @@ export interface Task {
   riskReason: string;
   recommendations: string[];
   createdAt: string;
+  time?: string;
+  reminder?: string;
 }
 
 export interface DailyPlanItem {

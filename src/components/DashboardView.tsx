@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Task } from "../types";
-import { ListTodo, CheckCircle, AlertTriangle, Calendar, Award, AlertOctagon } from "lucide-react";
+import { ListTodo, CheckCircle, AlertTriangle, Calendar, Award, AlertOctagon, RefreshCcw, Bell } from "lucide-react";
 import { motion } from "motion/react";
+import { googleSignIn, getAccessToken } from "../firebaseAuth";
+import { syncTasksToCalendarBulk } from "../calendarSync";
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -11,6 +13,8 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ tasks, productivityScore, onNavigate, onSelectTaskRisk }: DashboardViewProps) {
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const activeTasks = tasks.filter((t) => t.statusKey !== "completed");
   const completedTasks = tasks.filter((t) => t.statusKey === "completed");
   const highRiskTasks = activeTasks.filter((t) => t.riskScore >= 70);
@@ -23,14 +27,46 @@ export default function DashboardView({ tasks, productivityScore, onNavigate, on
   // Date parsing helper
   const formatDate = (dStr: string) => {
     try {
-      const parts = dStr.split("-");
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      }
-      return dStr;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     } catch (_) {
       return dStr;
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if ("Notification" in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        new Notification("Notifications Enabled", {
+          body: "You will now receive alerts for high-risk deadlines.",
+        });
+      }
+    }
+  };
+
+  const handleSyncCalendar = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      let token = await getAccessToken();
+      if (!token) {
+         const result = await googleSignIn();
+         if (result) token = result.accessToken;
+      }
+      
+      if (token) {
+         const count = await syncTasksToCalendarBulk(activeTasks);
+         setSyncMessage(`Successfully synced ${count} active tasks!`);
+      } else {
+         setSyncMessage("Sign in required.");
+      }
+    } catch (e: any) {
+      setSyncMessage(e.message || "Failed to sync.");
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMessage(""), 4000);
     }
   };
 
@@ -231,6 +267,29 @@ export default function DashboardView({ tasks, productivityScore, onNavigate, on
             >
               View All Tasks &rarr;
             </button>
+          </div>
+
+          {/* Integrations */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+            <h2 className="font-display font-bold text-base text-slate-900">System Integrations</h2>
+            <button 
+              onClick={requestNotificationPermission}
+              className="w-full flex items-center justify-center gap-2 bg-slate-50 border border-slate-200 text-slate-700 py-2.5 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <Bell className="h-4 w-4" />
+              Enable Push Notifications
+            </button>
+            <button 
+              onClick={handleSyncCalendar}
+              disabled={syncing}
+              className="w-full flex items-center justify-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 py-2.5 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCcw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Active to Google Calendar'}
+            </button>
+            {syncMessage && (
+              <p className="text-center text-xs font-semibold text-emerald-600">{syncMessage}</p>
+            )}
           </div>
         </div>
 

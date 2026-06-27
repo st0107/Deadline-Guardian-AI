@@ -255,9 +255,16 @@ app.get("/api/tasks", requireAuth, (req: AuthenticatedRequest, res) => {
 app.post("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
-    const { title, deadline, effort, priority, textPrompt } = req.body;
+    const { title, deadline, effort, priority, textPrompt, time, reminder } = req.body;
 
-    let finalTaskData = { title, deadline, effort: Number(effort || 2), priority: priority || "medium" };
+    let finalTaskData = { 
+      title, 
+      deadline, 
+      effort: Number(effort || 2), 
+      priority: priority || "medium",
+      time: time || "",
+      reminder: reminder || "none"
+    };
 
     if (textPrompt) {
       // Feature 1: Natural Language Task Creation
@@ -267,6 +274,8 @@ app.post("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
         deadline: aiResponse.deadline,
         effort: Number(aiResponse.effort || 2),
         priority: aiResponse.priority || "medium",
+        time: aiResponse.time || "",
+        reminder: aiResponse.reminder || "none"
       };
     }
 
@@ -641,10 +650,65 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
       new Date().toISOString()
     );
 
-    // Save model's response
-    const savedResponse = db.addChatMessage(userId, "model", textResult);
+    // Parse possible [COMMAND] blocks in the textResult
+    let cleanTextResult = textResult;
+    let refreshTasks = false;
+    let syncTask: any = null;
 
-    res.status(201).json(savedResponse);
+    const commandRegex = /\[COMMAND\]([\s\S]*?)\[\/COMMAND\]/;
+    const match = textResult.match(commandRegex);
+    if (match && match[1]) {
+      try {
+        const cmd = JSON.parse(match[1].trim());
+        if (cmd.action === "create" && cmd.task) {
+          const newTask = db.createTask(userId, {
+            title: cmd.task.title,
+            deadline: cmd.task.deadline,
+            priority: cmd.task.priority || "medium",
+            statusKey: "pending",
+            effort: 1,
+            riskScore: 0,
+            riskReason: "Not analyzed yet",
+            recommendations: [],
+            time: cmd.task.time || "",
+            reminder: cmd.task.reminder || "none"
+          });
+          refreshTasks = true;
+          syncTask = newTask;
+        } else if (cmd.action === "update" && cmd.taskId) {
+          const updates: any = {};
+          if (cmd.task) {
+            if (cmd.task.statusKey) updates.statusKey = cmd.task.statusKey;
+            if (cmd.task.title) updates.title = cmd.task.title;
+            if (cmd.task.deadline) updates.deadline = cmd.task.deadline;
+            if (cmd.task.priority) updates.priority = cmd.task.priority;
+            if (cmd.task.hasOwnProperty("time")) updates.time = cmd.task.time;
+            if (cmd.task.hasOwnProperty("reminder")) updates.reminder = cmd.task.reminder;
+          }
+          const updated = db.updateTask(cmd.taskId, updates);
+          if (updated) {
+            refreshTasks = true;
+            syncTask = updated;
+          }
+        } else if (cmd.action === "delete" && cmd.taskId) {
+          db.deleteTask(cmd.taskId);
+          refreshTasks = true;
+        }
+      } catch (e) {
+        console.error("Failed to execute parsed [COMMAND] block:", e);
+      }
+      // Remove the [COMMAND] block from the final display content
+      cleanTextResult = textResult.replace(commandRegex, "").trim();
+    }
+
+    // Save model's response
+    const savedResponse = db.addChatMessage(userId, "model", cleanTextResult);
+
+    res.status(201).json({
+      ...savedResponse,
+      refreshTasks,
+      syncTask
+    });
   } catch (err: any) {
     console.error("AI advisor failure:", err);
     res.status(500).json({ error: err.message || "Failed to parse advice stream." });
@@ -713,7 +777,9 @@ async function startServer() {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
           },
           systemInstruction:
-            "You are a welcoming real-time productivity assistant for Deadline Guardian AI. Keep your voice responses supportive, quick, and conversational. Give guidance on deadlines. You can read, create, update, and delete the user's tasks. Use the tools provided when the user requests help managing their schedule. ALWAYS call getTasks first to find the correct taskId before updating or deleting a task.",
+            `You are a welcoming real-time productivity assistant for Deadline Guardian AI. Keep your voice responses supportive, quick, and conversational. Give guidance on deadlines. You can read, create, update, and delete the user's tasks. Use the tools provided when the user requests help managing their schedule. ALWAYS call getTasks first to find the correct taskId before updating or deleting a task. 
+The current local date and time is: ${new Date().toLocaleString()}.
+When passing dates (like deadlines) to tools, ALWAYS calculate the exact target date based on the current local date, and format it strictly as "YYYY-MM-DD". NEVER pass words like "tomorrow", "today", "next week", "invalid date" or unformatted dates to the tools.`,
           tools: [
             {
               functionDeclarations: [
@@ -724,27 +790,34 @@ async function startServer() {
                 },
                 {
                   name: "createTask",
-                  description: "Create a new task",
+                  description: "Create a new task. If the user mentions a specific time or reminder, extract and provide them.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
                       title: { type: Type.STRING, description: "Title of the task" },
-                      deadline: { type: Type.STRING, description: "Deadline date string in ISO format (e.g. 2026-06-25)" },
-                      priority: { type: Type.STRING, description: "Priority: low, medium, high" }
+                      deadline: { type: Type.STRING, description: "Strictly YYYY-MM-DD (e.g. 2026-06-25). Convert relative days to exact dates." },
+                      priority: { type: Type.STRING, description: "Priority: low, medium, high" },
+                      time: { type: Type.STRING, description: "Start time of the task in 24h HH:MM format (e.g. '14:30', '09:00'). Leave blank if not specified." },
+                      reminder: { type: Type.STRING, description: "Reminder interval: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] }
                     },
                     required: ["title", "deadline", "priority"]
                   }
                 },
                 {
                   name: "updateTask",
-                  description: "Update an existing task's status. IMPORTANT: Call getTasks first to get the taskId.",
+                  description: "Update any attribute of an existing task (title, deadline, status, priority, time, reminder). IMPORTANT: Call getTasks first to get the taskId.",
                   parameters: {
                     type: Type.OBJECT,
                     properties: {
                       taskId: { type: Type.STRING },
-                      statusKey: { type: Type.STRING, description: "New status: pending, started, or completed" }
+                      statusKey: { type: Type.STRING, description: "New status: pending, started, or completed" },
+                      title: { type: Type.STRING, description: "New title for the task" },
+                      deadline: { type: Type.STRING, description: "Strictly YYYY-MM-DD (e.g. 2026-06-25). Convert relative days to exact dates." },
+                      priority: { type: Type.STRING, description: "New priority: low, medium, high" },
+                      time: { type: Type.STRING, description: "New start time in 24h HH:MM format" },
+                      reminder: { type: Type.STRING, description: "New reminder: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] }
                     },
-                    required: ["taskId", "statusKey"]
+                    required: ["taskId"]
                   }
                 },
                 {
@@ -791,16 +864,26 @@ async function startServer() {
                          effort: 1,
                          riskScore: 0,
                          riskReason: "Not analyzed yet",
-                         recommendations: []
+                         recommendations: [],
+                         time: (args.time || "") as string,
+                         reminder: (args.reminder || "none") as string,
                        });
                        resultData = task;
-                       clientWs.send(JSON.stringify({ refreshTasks: true }));
+                       clientWs.send(JSON.stringify({ refreshTasks: true, syncTask: task }));
                     } else if (name === "updateTask") {
                        const taskId = args.taskId as string;
                        const task = db.getTask(taskId);
                        if (task && task.userId === user.id) {
-                          resultData = db.updateTask(taskId, { statusKey: args.statusKey as any });
-                          clientWs.send(JSON.stringify({ refreshTasks: true }));
+                          const updates: any = {};
+                          if (args.statusKey) updates.statusKey = args.statusKey;
+                          if (args.title) updates.title = args.title;
+                          if (args.deadline) updates.deadline = args.deadline;
+                          if (args.priority) updates.priority = args.priority;
+                          if (args.hasOwnProperty("time")) updates.time = args.time;
+                          if (args.hasOwnProperty("reminder")) updates.reminder = args.reminder;
+                          const updatedTask = db.updateTask(taskId, updates);
+                          resultData = updatedTask;
+                          clientWs.send(JSON.stringify({ refreshTasks: true, syncTask: updatedTask }));
                        } else {
                           resultData = { error: "Task not found or unauthorized" };
                        }

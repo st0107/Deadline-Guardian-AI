@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, PhoneCall, PhoneOff, Radio, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { syncTaskToCalendar } from "../calendarSync";
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -65,20 +66,26 @@ export default function LiveVoiceWidget() {
       };
 
       recognition.onend = () => {
-        // Restart recognition if it ends, unless we are currently in an active session or connecting
-        if (recognitionRef.current && !activeRef.current && !connectingRef.current && !permissionDeniedRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {}
+        // Restart recognition if it ends, unless permission denied
+        if (recognitionRef.current && !permissionDeniedRef.current) {
+          setTimeout(() => {
+            if (recognitionRef.current && !permissionDeniedRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {}
+            }
+          }, 500);
         }
       };
 
       recognition.onerror = (event: any) => {
         console.log("[WakeWord] Error:", event.error);
-        if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+        if (event.error === 'not-allowed') {
           setWakeWordListening(false);
           permissionDeniedRef.current = true;
           // If permission is denied initially, don't keep trying to restart aggressively
+        } else if (event.error === 'audio-capture') {
+          setWakeWordListening(false);
         }
       };
 
@@ -124,13 +131,6 @@ export default function LiveVoiceWidget() {
     setConnecting(true);
     setStatus("Activating device permissions...");
 
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        setWakeWordListening(false);
-      } catch (e) {}
-    }
-
     try {
       // 1. Check & acquire mic stream
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -169,6 +169,13 @@ export default function LiveVoiceWidget() {
           }
           if (payload.refreshTasks) {
             window.dispatchEvent(new Event("dg_refresh_tasks"));
+          }
+          if (payload.syncTask) {
+            try {
+              await syncTaskToCalendar(payload.syncTask);
+            } catch (calErr) {
+              console.error("Auto calendar sync failed:", calErr);
+            }
           }
           if (payload.error) {
             setErrorText(payload.error);

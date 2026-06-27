@@ -3,6 +3,8 @@ import { api } from "../api";
 import { ChatMessage } from "../types";
 import { Sparkles, Send, Trash2, ShieldAlert, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { syncTaskToCalendar } from "../calendarSync";
+import Markdown from "react-markdown";
 
 interface ChatAdvisorProps {
   tasksCount: number;
@@ -55,6 +57,18 @@ export default function ChatAdvisor({ tasksCount }: ChatAdvisorProps) {
       const answer = await api.sendChatMessage(userPrompt);
       // Replace optimistic or simply load the complete thread saved response
       setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp_")).concat(answer));
+
+      const payload = answer as any;
+      if (payload.refreshTasks) {
+        window.dispatchEvent(new Event("dg_refresh_tasks"));
+      }
+      if (payload.syncTask) {
+        try {
+          await syncTaskToCalendar(payload.syncTask);
+        } catch (calErr) {
+          console.error("Auto calendar sync from Chat failed:", calErr);
+        }
+      }
     } catch (err: any) {
       setErrMessage(err.message || "Failed to query strategic advisor.");
     } finally {
@@ -130,12 +144,14 @@ export default function ChatAdvisor({ tasksCount }: ChatAdvisorProps) {
                   {isUser ? "U" : "AI"}
                 </span>
 
-                <div className={`p-3 rounded-xl text-xs leading-relaxed font-semibold shadow-3xs ${
+                <div className={`p-3 rounded-xl text-xs leading-relaxed font-semibold shadow-3xs [&_strong]:font-bold [&_strong]:text-indigo-800 [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:mb-1 [&_p]:mb-2 last:[&_p]:mb-0 ${
                   isUser
                     ? "bg-indigo-50 border border-indigo-100 text-slate-800 rounded-tr-none"
                     : "bg-slate-50/75 border border-slate-100 text-slate-850 rounded-tl-none font-sans text-slate-700"
                 }`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div className="markdown-body">
+                    <Markdown>{msg.content}</Markdown>
+                  </div>
                 </div>
               </div>
             );

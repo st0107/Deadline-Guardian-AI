@@ -3,6 +3,8 @@ import { api } from "../api";
 import { DailyPlan, Task } from "../types";
 import { Calendar, Brain, Clock, ShieldCheck, ZapOff, Sparkles, RefreshCcw } from "lucide-react";
 import { motion } from "motion/react";
+import { googleSignIn, getAccessToken } from "../firebaseAuth";
+import { syncDailyPlanToCalendar } from "../calendarSync";
 
 interface PlannerViewProps {
   tasks: Task[];
@@ -23,6 +25,34 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
   const [loading, setLoading] = useState(false);
   const [errMessage, setErrMessage] = useState("");
   const [actionSuccess, setActionSuccess] = useState("");
+  const [syncingCalendar, setSyncingCalendar] = useState(false);
+  const [syncSuccessMessage, setSyncSuccessMessage] = useState("");
+
+  const handleSyncPlanToCalendar = async () => {
+    if (!currentPlan) return;
+    setSyncingCalendar(true);
+    setSyncSuccessMessage("");
+    setErrMessage("");
+    try {
+      let token = await getAccessToken();
+      if (!token) {
+        const result = await googleSignIn();
+        if (result) token = result.accessToken;
+      }
+
+      if (token) {
+        const count = await syncDailyPlanToCalendar(currentPlan);
+        setSyncSuccessMessage(`Successfully scheduled ${count} timeline blocks on Google Calendar!`);
+        setTimeout(() => setSyncSuccessMessage(""), 5000);
+      } else {
+        setErrMessage("Sign in to Google is required.");
+      }
+    } catch (e: any) {
+      setErrMessage(e.message || "Failed to sync schedule blocks.");
+    } finally {
+      setSyncingCalendar(false);
+    }
+  };
 
   const fetchPlan = async (dateStr: string) => {
     try {
@@ -74,12 +104,9 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
 
   const formatDateLabel = (dStr: string) => {
     try {
-      const parts = dStr.split("-");
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-      }
-      return dStr;
+      const d = new Date(dStr);
+      if (isNaN(d.getTime())) return dStr;
+      return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
     } catch (_) {
       return dStr;
     }
@@ -170,20 +197,39 @@ export default function PlannerView({ tasks, onTasksUpdated }: PlannerViewProps)
         </div>
       )}
 
+      {syncSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs rounded-xl p-4 font-medium">
+          {syncSuccessMessage}
+        </div>
+      )}
+
       {/* Main planner display area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Hour block timeline */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 mb-5 gap-3">
               <h3 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
                 <Brain className="h-5 w-5 text-indigo-600" />
                 <span>Hour-By-Hour Allocation list</span>
               </h3>
-              <span className="text-2xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                Ref: {formatDateLabel(targetDate)}
-              </span>
+              
+              <div className="flex items-center gap-2">
+                {currentPlan && (
+                  <button
+                    onClick={handleSyncPlanToCalendar}
+                    disabled={syncingCalendar}
+                    className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-2xs font-bold py-1.5 px-3 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCcw className={`h-3.5 w-3.5 ${syncingCalendar ? "animate-spin" : ""}`} />
+                    <span>{syncingCalendar ? "Syncing..." : "Sync to Google Calendar"}</span>
+                  </button>
+                )}
+                <span className="text-2xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md border border-slate-200">
+                  Ref: {formatDateLabel(targetDate)}
+                </span>
+              </div>
             </div>
 
             {!currentPlan ? (

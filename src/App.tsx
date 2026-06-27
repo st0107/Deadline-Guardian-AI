@@ -57,6 +57,46 @@ export default function App() {
     fetchUserProfileAndTasks();
   }, [token]);
 
+  // Periodic notification checker
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+    
+    const checkNotifications = () => {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      
+      const now = new Date();
+      tasks.forEach((t) => {
+        if (t.statusKey === "completed") return;
+        
+        const deadlineDate = new Date(t.deadline);
+        const diffHours = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        // Notify if high risk or due within 24 hours, only notify once locally
+        const notifKey = `dg_notified_${t.id}_${deadlineDate.toDateString()}`;
+        if (!localStorage.getItem(notifKey)) {
+          if (t.riskScore >= 70) {
+            new Notification("High Risk Deadline Approaching", {
+              body: `Task "${t.title}" is high risk (${t.riskScore}%) and needs attention.`,
+              icon: "/icon.svg"
+            });
+            localStorage.setItem(notifKey, "true");
+          } else if (diffHours > 0 && diffHours <= 24) {
+            new Notification("Task Due Soon", {
+              body: `Task "${t.title}" is due tomorrow.`,
+              icon: "/icon.svg"
+            });
+            localStorage.setItem(notifKey, "true");
+          }
+        }
+      });
+    };
+
+    // Check immediately and then every hour
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 1000 * 60 * 60);
+    return () => clearInterval(interval);
+  }, [tasks]);
+
   const handleAuthSuccess = (u: User, t: string) => {
     localStorage.setItem("dg_jwt_token", t);
     setToken(t);
