@@ -65,8 +65,8 @@ export default function LiveVoiceWidget() {
       };
 
       recognition.onend = () => {
-        // Always restart recognition so we can hear stop commands ("go offline") during active sessions
-        if (recognitionRef.current && !permissionDeniedRef.current) {
+        // Restart recognition if it ends, unless we are currently in an active session or connecting
+        if (recognitionRef.current && !activeRef.current && !connectingRef.current && !permissionDeniedRef.current) {
           try {
             recognitionRef.current.start();
           } catch (e) {}
@@ -124,8 +124,12 @@ export default function LiveVoiceWidget() {
     setConnecting(true);
     setStatus("Activating device permissions...");
 
-    // Keep SpeechRecognition running during active sessions
-    // so it can detect stop commands like "go offline"
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        setWakeWordListening(false);
+      } catch (e) {}
+    }
 
     try {
       // 1. Check & acquire mic stream
