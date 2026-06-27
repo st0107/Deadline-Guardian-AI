@@ -92,6 +92,15 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
   const [thinking, setThinking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  type QueueItem = {
+    id: string;
+    text: string;
+    status: "processing" | "completed" | "error";
+    error?: string;
+    title?: string;
+  };
+  const [nlpQueue, setNlpQueue] = useState<QueueItem[]>([]);
+
   // Inline audio record States
   const [isRecording, setIsRecording] = useState(false);
   const [audioTranscriptionPending, setAudioTranscriptionPending] = useState(false);
@@ -172,21 +181,30 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
     }
   };
 
-  const handleNlpExtract = async () => {
+  const handleNlpExtract = () => {
     if (!nlpInput.trim()) return;
-    setThinking(true);
+    
+    const id = Math.random().toString(36).substring(7);
+    const text = nlpInput;
+    setNlpInput("");
     setErrMessage("");
-    try {
-      const parsed = await api.createTask({ textPrompt: nlpInput });
-      setSuccessMsg(`Extracted! Created task: "${parsed.title}" due ${parsed.deadline}`);
-      setNlpInput("");
-      onTasksUpdated();
-      setTimeout(() => setSuccessMsg(""), 4500);
-    } catch (err: any) {
-      setErrMessage(err.message || "Failed to parse task prompt.");
-    } finally {
-      setThinking(false);
-    }
+    
+    setNlpQueue(q => [...q, { id, text, status: "processing" }]);
+    
+    api.createTask({ textPrompt: text })
+      .then(parsed => {
+        setNlpQueue(q => q.map(i => i.id === id ? { ...i, status: "completed", title: parsed.title } : i));
+        onTasksUpdated();
+        setTimeout(() => {
+           setNlpQueue(q => q.filter(i => i.id !== id));
+        }, 5000);
+      })
+      .catch(err => {
+        setNlpQueue(q => q.map(i => i.id === id ? { ...i, status: "error", error: err.message || "Failed to parse task prompt." } : i));
+        setTimeout(() => {
+           setNlpQueue(q => q.filter(i => i.id !== id));
+        }, 10000);
+      });
   };
 
   const handleManualCreate = async (e: React.FormEvent) => {
@@ -340,7 +358,7 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
 
                   <div className="relative">
                     <textarea
-                      disabled={thinking || audioTranscriptionPending}
+                      disabled={audioTranscriptionPending}
                       placeholder="Type details naturally or click the record microphone button on the right..."
                       value={nlpInput}
                       onChange={(e) => setNlpInput(e.target.value)}
@@ -389,19 +407,55 @@ export default function TaskView({ tasks, onTasksUpdated, onSelectTaskRisk }: Ta
                     </span>
                     <button
                       onClick={handleNlpExtract}
-                      disabled={thinking || !nlpInput.trim()}
+                      disabled={!nlpInput.trim()}
                       className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                     >
-                      {thinking ? (
-                        <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5" />
-                          <span>AI Extract Task</span>
-                        </>
-                      )}
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>AI Extract Task</span>
                     </button>
                   </div>
+                  
+                  {/* NLP Queue Display */}
+                  {nlpQueue.length > 0 && (
+                    <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                        Extraction Queue ({nlpQueue.length})
+                      </span>
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-2 scrollbar-thin">
+                        <AnimatePresence>
+                          {nlpQueue.map((item) => (
+                            <motion.div
+                              key={item.id}
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs"
+                            >
+                              <div className="truncate pr-4 text-slate-700 flex-1 flex items-center gap-2">
+                                {item.status === "processing" && (
+                                  <div className="h-3 w-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                                )}
+                                {item.status === "completed" && (
+                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                                )}
+                                {item.status === "error" && (
+                                  <AlertTriangle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {item.title ? `Created: ${item.title}` : `"${item.text}"`}
+                                </span>
+                              </div>
+                              <div className="flex-shrink-0 font-medium">
+                                {item.status === "processing" && <span className="text-indigo-600">Extracting...</span>}
+                                {item.status === "completed" && <span className="text-emerald-600">Success</span>}
+                                {item.status === "error" && <span className="text-red-600" title={item.error}>Failed</span>}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* Manual Custom Form */

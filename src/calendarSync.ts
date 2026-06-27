@@ -3,7 +3,10 @@ import { getAccessToken } from './firebaseAuth';
 
 export const syncTaskToCalendar = async (task: Task) => {
   const token = await getAccessToken();
-  if (!token) throw new Error("Not connected to Google Calendar. Please sign in.");
+  if (!token) {
+    console.warn("Not connected to Google Calendar. Task not synced automatically. Please sign in.");
+    return false;
+  }
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -13,20 +16,21 @@ export const syncTaskToCalendar = async (task: Task) => {
   const month = parts[1] ? parseInt(parts[1], 10) - 1 : new Date().getMonth();
   const day = parts[2] ? parseInt(parts[2], 10) : new Date().getDate();
 
-  let startHour = 9;
-  let startMinute = 0;
+  let endHour = 17;
+  let endMinute = 0;
   if (task.time) {
     const timeParts = task.time.split(':');
-    if (timeParts[0]) startHour = parseInt(timeParts[0], 10);
-    if (timeParts[1]) startMinute = parseInt(timeParts[1], 10);
+    if (timeParts[0]) endHour = parseInt(timeParts[0], 10);
+    if (timeParts[1]) endMinute = parseInt(timeParts[1], 10);
   }
 
-  // Create start time on the deadline day
-  const startDt = new Date(year, month, day, startHour, startMinute, 0);
-  
-  // End time is start time + task effort in hours (default 1 hour)
   const effortHours = task.effort || 1;
-  const endDt = new Date(startDt.getTime() + effortHours * 60 * 60 * 1000);
+
+  // The deadline is the end time
+  const endDt = new Date(year, month, day, endHour, endMinute, 0);
+  
+  // Start time is deadline minus effort
+  const startDt = new Date(endDt.getTime() - effortHours * 60 * 60 * 1000);
 
   const remindersObj: any = { useDefault: true };
   if (task.reminder && task.reminder !== "none") {
@@ -87,7 +91,10 @@ export const syncTasksToCalendarBulk = async (tasks: Task[]) => {
 
 export const syncDailyPlanItemToCalendar = async (dateStr: string, item: DailyPlanItem) => {
   const token = await getAccessToken();
-  if (!token) throw new Error("Not connected to Google Calendar. Please sign in.");
+  if (!token) {
+    console.warn("Not connected to Google Calendar. Item not synced automatically. Please sign in.");
+    return false;
+  }
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
