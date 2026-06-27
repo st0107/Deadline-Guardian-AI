@@ -1,0 +1,82 @@
+{
+  "users": [
+    {
+      "name": "Sumit",
+      "email": "stworkofficial@gmail.com",
+      "passwordHash": "$2b$10$9nAATUOG0WnaUSBZzm6rre2T1qb5MOWoua4oCv0PR1uvZ823aNpWS",
+      "id": "evsgj0y6g",
+      "createdAt": "2026-06-25T10:52:17.868Z",
+      "productivityScore": 75
+    }
+  ],
+  "tasks": [
+    {
+      "title": "important meeting for MVP for Deadline Guardian AI",
+      "deadline": "2026-06-27T12:00:00",
+      "priority": "high",
+      "statusKey": "pending",
+      "effort": 1,
+      "riskScore": 0,
+      "riskReason": "Not analyzed yet",
+      "recommendations": [],
+      "id": "raw_fw8uf5vq6",
+      "userId": "evsgj0y6g",
+      "createdAt": "2026-06-27T03:49:27.492Z"
+    }
+  ],
+  "dailyPlans": [],
+  "activityLogs": [
+    {
+      "id": "log_ojkuowkpc",
+      "userId": "evsgj0y6g",
+      "action": "register",
+      "timestamp": "2026-06-25T10:52:17.874Z",
+      "taskTitle": "Account Created",
+      "details": "Welcome Sumit! Deadline Guardian AI is initialized."
+    }
+  ],
+  "chatMessages": [
+    {
+      "id": "chat_3pjd632tb",
+      "userId": "evsgj0y6g",
+      "role": "user",
+      "content": "I need to build an entire inventory management system in 5 days.  Features: - Authentication - Product management - Order tracking - Reports dashboard - Deployment  I can work 3 hours per day.  What risks do you see?",
+      "timestamp": "2026-06-25T10:54:21.186Z"
+    },
+    {
+      "id": "chat_pppkje7et",
+      "userId": "evsgj0y6g",
+      "role": "model",
+      "content": "Greetings, I encountered a communication hiccup (Model Error). Details: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getti",
+      "timestamp": "2026-06-25T10:54:21.549Z"
+    },
+    {
+      "id": "chat_emg9adciy",
+      "userId": "evsgj0y6g",
+      "role": "user",
+      "content": "b",
+      "timestamp": "2026-06-25T10:54:27.145Z"
+    },
+    {
+      "id": "chat_xv01ob734",
+      "userId": "evsgj0y6g",
+      "role": "model",
+      "content": "Greetings, I encountered a communication hiccup (Model Error). Details: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getti",
+      "timestamp": "2026-06-25T10:54:27.149Z"
+    },
+    {
+      "id": "chat_483e0zq11",
+      "userId": "evsgj0y6g",
+      "role": "user",
+      "content": "I need to build an entire inventory management system in 5 days.  Features: - Authentication - Product management - Order tracking - Reports dashboard - Deployment  I can work 3 hours per day.  What risks do you see?",
+      "timestamp": "2026-06-25T10:54:36.250Z"
+    },
+    {
+      "id": "chat_fhd6m9tpo",
+      "userId": "evsgj0y6g",
+      "role": "model",
+      "content": "Greetings, I encountered a communication hiccup (Model Error). Details: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getti",
+      "timestamp": "2026-06-25T10:54:36.256Z"
+    }
+  ]
+}

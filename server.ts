@@ -683,6 +683,7 @@ async function startServer() {
   // Handle Gemini Live Audio WebSockets using Zephyr speech
   wss.on("connection", async (clientWs: WebSocket, request) => {
     console.log("Real-time Gemini Voice socket successfully connected.");
+    console.log(`[Voice] GEMINI_API_KEY present: ${!!process.env.GEMINI_API_KEY}, length: ${(process.env.GEMINI_API_KEY || "").length}`);
 
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const token = url.searchParams.get("token");
@@ -764,9 +765,15 @@ async function startServer() {
         },
         callbacks: {
           onmessage: (message) => {
-            const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-            if (audioData) {
-              clientWs.send(JSON.stringify({ audio: audioData }));
+            // Iterate ALL parts in the modelTurn, not just parts[0]
+            const parts = message.serverContent?.modelTurn?.parts;
+            if (parts && parts.length > 0) {
+              for (const part of parts) {
+                const audioData = part.inlineData?.data;
+                if (audioData) {
+                  clientWs.send(JSON.stringify({ audio: audioData }));
+                }
+              }
             }
             if (message.serverContent?.interrupted) {
               clientWs.send(JSON.stringify({ interrupted: true }));
@@ -774,6 +781,7 @@ async function startServer() {
             if (message.toolCall) {
               const functionCalls = message.toolCall.functionCalls;
               if (functionCalls && functionCalls.length > 0) {
+                console.log(`[Voice] Tool calls received: ${functionCalls.map((c: any) => c.name).join(", ")}`);
                 const functionResponses: any[] = [];
                 for (const call of functionCalls) {
                   const name = call.name;
@@ -826,9 +834,17 @@ async function startServer() {
                   });
                 }
                 
+                console.log(`[Voice] Sending tool responses for: ${functionResponses.map(r => r.name).join(", ")}`);
                 liveSession.sendToolResponse({ functionResponses });
               }
             }
+          },
+          onerror: (e: any) => {
+            console.error("[Voice] Gemini Live session error:", e);
+            clientWs.send(JSON.stringify({ error: "Live AI session encountered an error." }));
+          },
+          onclose: (e: any) => {
+            console.log("[Voice] Gemini Live session closed:", e);
           },
         },
       });
