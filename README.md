@@ -172,6 +172,7 @@ interface Task {
 ### **Slide 2: The Core Product Core pillars**
 * **Predictive Risk Assessment**: Active deadlines are weighed against other tasks using Gemini 3.1 Pro to output an interactive Threat Dial.
 * **Interactive Voice Management**: Users speak naturally into their mic to review, create, edit, or delete tasks. Gemini handles the audio and seamlessly executes background system tools that reflect instantly on the UI.
+* **Google Calendar Sync**: Integrates with Google Calendar, automatically adding tasks to your calendar to keep your schedule fully aligned and prevent double booking.
 * **Smart Rescue Replanning**: When tasks are left unfinished, a simple click redirects remaining work into an optimized rescue day plan.
 
 ### **Slide 3: Technical Showcase (Under the Hood)**
@@ -189,6 +190,7 @@ GEMINI_API_KEY=your_gemini_token
 JWT_SECRET=production_guardian_strength_secret
 NODE_ENV=production
 ```
+Make sure `firebase-applet-config.json` containing the Firebase credentials and Google OAuth client ID (for Calendar Sync) is present in the root directory.
 
 ### Build Commands
 To compile static React assets, package typescript, bundle server, and run production Node server CJS:
