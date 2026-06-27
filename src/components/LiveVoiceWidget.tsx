@@ -17,6 +17,7 @@ export default function LiveVoiceWidget() {
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
+  const permissionDeniedRef = useRef(false);
   const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
 
   // Audio Playback Queue offsets
@@ -38,30 +39,52 @@ export default function LiveVoiceWidget() {
     if (!recognitionRef.current) {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: any) => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
+          const rawTranscript = event.results[i][0].transcript;
+          const transcript = rawTranscript.toLowerCase().replace(/[.,!?]/g, "").trim();
+          
           if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript.toLowerCase();
-            if (!activeRef.current && !connectingRef.current && (transcript.includes("hello guardian") || transcript.includes("hello deadline guardian"))) {
-              window.dispatchEvent(new CustomEvent("dg_start_voice"));
-            }
-            if (activeRef.current && (transcript.includes("go offline") || transcript.includes("stop guardian"))) {
-              window.dispatchEvent(new CustomEvent("dg_stop_voice"));
-            }
+            console.log("[WakeWord] Final Heard:", transcript);
+          } else {
+            console.log("[WakeWord] Interim:", transcript);
+          }
+
+          if (!activeRef.current && !connectingRef.current && (transcript.includes("hello guardian") || transcript.includes("hi guardian") || transcript.includes("guardian ai"))) {
+            console.log("[WakeWord] Triggering start voice");
+            window.dispatchEvent(new CustomEvent("dg_start_voice"));
+          }
+          if (activeRef.current && (transcript.includes("go offline") || transcript.includes("stop guardian") || transcript.includes("goodbye guardian"))) {
+            console.log("[WakeWord] Triggering stop voice");
+            window.dispatchEvent(new CustomEvent("dg_stop_voice"));
           }
         }
       };
 
       recognition.onend = () => {
-        // Restart recognition if it ends
-        if (recognitionRef.current) {
+        // Restart recognition if it ends, unless we are currently in an active session or connecting
+        if (recognitionRef.current && !activeRef.current && !connectingRef.current && !permissionDeniedRef.current) {
           try {
             recognitionRef.current.start();
           } catch (e) {}
         }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.log("[WakeWord] Error:", event.error);
+        if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+          setWakeWordListening(false);
+          permissionDeniedRef.current = true;
+          // If permission is denied initially, don't keep trying to restart aggressively
+        }
+      };
+
+      recognition.onstart = () => {
+        console.log("[WakeWord] Listening started");
+        setWakeWordListening(true);
       };
 
       recognitionRef.current = recognition;
@@ -69,7 +92,6 @@ export default function LiveVoiceWidget() {
 
     try {
       recognitionRef.current.start();
-      setWakeWordListening(true);
     } catch (e) {}
 
     return () => {
@@ -94,9 +116,20 @@ export default function LiveVoiceWidget() {
   }, []);
 
   const startVoiceSession = async () => {
+    if (connectingRef.current || activeRef.current) return;
+    connectingRef.current = true; // Immediate lock
+    permissionDeniedRef.current = false;
+    
     setErrorText("");
     setConnecting(true);
     setStatus("Activating device permissions...");
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        setWakeWordListening(false);
+      } catch (e) {}
+    }
 
     try {
       // 1. Check & acquire mic stream
@@ -112,6 +145,8 @@ export default function LiveVoiceWidget() {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        connectingRef.current = false;
+        activeRef.current = true;
         setConnecting(false);
         setActive(true);
         setStatus("Verbal connection active. Talk naturally!");
@@ -127,13 +162,10 @@ export default function LiveVoiceWidget() {
             playRawPCMChunk(payload.audio);
           }
           if (payload.interrupted) {
-            // Drop current and next play buffers to clear overlap noise
-            nextStartTimeRef.current = 0;
-            const nodesToStop = [...sourceNodesRef.current];
-            sourceNodesRef.current = [];
-            nodesToStop.forEach(node => {
-              try { node.stop(); } catch (e) {}
-            });
+            // User requested to queue responses rather than interrupt.
+            // We ignore the interrupted signal here so the current audio finishes,
+            // and the new response audio simply appends to the timeline.
+            console.log("Audio interruption signal received, but ignored to maintain queue.");
           }
           if (payload.refreshTasks) {
             window.dispatchEvent(new Event("dg_refresh_tasks"));
@@ -165,6 +197,10 @@ export default function LiveVoiceWidget() {
   };
 
   const stopVoiceSession = () => {
+    if (!activeRef.current && !connectingRef.current) return;
+    activeRef.current = false;
+    connectingRef.current = false;
+
     setStatus("Offline");
     setActive(false);
     setConnecting(false);
@@ -204,6 +240,13 @@ export default function LiveVoiceWidget() {
     if (outputAudioCtxRef.current) {
       outputAudioCtxRef.current.close().catch(() => {});
       outputAudioCtxRef.current = null;
+    }
+
+    if (recognitionRef.current && !permissionDeniedRef.current) {
+      try {
+        recognitionRef.current.start();
+        setWakeWordListening(true);
+      } catch (e) {}
     }
   };
 
@@ -364,7 +407,7 @@ export default function LiveVoiceWidget() {
             <span className="text-xs font-normal mt-1 opacity-80">Say "go offline" or tap to stop</span>
           </span>
         ) : (
-          wakeWordListening ? "Say \"Hello Guardian AI\" or tap the dial to start a spoken voice diagnostic." : "Tap the dial trigger to start a spoken voice productivity diagnostic with Gemini."
+          wakeWordListening ? "Say \"Hello Guardian AI\" or tap the dial to start a spoken voice diagnostic." : "Tap the dial to grant mic permissions and start a spoken voice diagnostic. (Wake word requires permission first)"
         )}
       </div>
     </div>

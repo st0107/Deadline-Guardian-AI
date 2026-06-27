@@ -66,6 +66,7 @@ app.post("/api/auth/register", async (req, res) => {
       deadline: tomorrow.toISOString(),
       priority: "high",
       effort: 3,
+      statusKey: "pending",
       riskScore: 75,
       riskReason: "High priority task due tomorrow. Immediate attention required to avoid missing the deadline.",
       recommendations: ["Allocate 3 uninterrupted hours today", "Delegate minor tasks to focus on review"]
@@ -76,6 +77,7 @@ app.post("/api/auth/register", async (req, res) => {
       deadline: nextWeek.toISOString(),
       priority: "medium",
       effort: 2,
+      statusKey: "pending",
       riskScore: 20,
       riskReason: "Ample time available before deadline.",
       recommendations: ["Draft sections iteratively", "Review with team before finalizing"]
@@ -86,6 +88,7 @@ app.post("/api/auth/register", async (req, res) => {
       deadline: today.toISOString(),
       priority: "high",
       effort: 4,
+      statusKey: "pending",
       riskScore: 90,
       riskReason: "Due today with significant effort required. High risk of incomplete delivery.",
       recommendations: ["Start immediately", "Use existing templates to save time", "Ask a colleague to proofread"]
@@ -96,6 +99,7 @@ app.post("/api/auth/register", async (req, res) => {
       deadline: new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString(),
       priority: "low",
       effort: 1,
+      statusKey: "completed",
       riskScore: 0,
       riskReason: "Completed on time.",
       recommendations: []
