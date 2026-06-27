@@ -17,6 +17,7 @@ export default function LiveVoiceWidget() {
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
+  const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
 
   // Audio Playback Queue offsets
   const nextStartTimeRef = useRef<number>(0);
@@ -128,6 +129,11 @@ export default function LiveVoiceWidget() {
           if (payload.interrupted) {
             // Drop current and next play buffers to clear overlap noise
             nextStartTimeRef.current = 0;
+            const nodesToStop = [...sourceNodesRef.current];
+            sourceNodesRef.current = [];
+            nodesToStop.forEach(node => {
+              try { node.stop(); } catch (e) {}
+            });
           }
           if (payload.refreshTasks) {
             window.dispatchEvent(new Event("dg_refresh_tasks"));
@@ -162,6 +168,13 @@ export default function LiveVoiceWidget() {
     setStatus("Offline");
     setActive(false);
     setConnecting(false);
+
+    const nodesToStop = [...sourceNodesRef.current];
+    sourceNodesRef.current = [];
+    nodesToStop.forEach(node => {
+      try { node.stop(); } catch (e) {}
+    });
+    nextStartTimeRef.current = 0;
 
     // Stop WebSocket
     if (wsRef.current) {
@@ -272,6 +285,11 @@ export default function LiveVoiceWidget() {
       const sourceNode = outputAudioCtxRef.current.createBufferSource();
       sourceNode.buffer = audioBuffer;
       sourceNode.connect(outputAudioCtxRef.current.destination);
+
+      sourceNode.onended = () => {
+        sourceNodesRef.current = sourceNodesRef.current.filter(n => n !== sourceNode);
+      };
+      sourceNodesRef.current.push(sourceNode);
 
       // Thread syncing timeline schedules to preserve gapless playback
       const now = outputAudioCtxRef.current.currentTime;
