@@ -693,6 +693,11 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
         } else if (cmd.action === "delete" && cmd.taskId) {
           db.deleteTask(cmd.taskId);
           refreshTasks = true;
+        } else if (cmd.action === "sync-calendar" && cmd.taskId) {
+          const task = db.getTask(cmd.taskId);
+          if (task && task.userId === userId) {
+            syncTask = task;
+          }
         }
       } catch (e) {
         console.error("Failed to execute parsed [COMMAND] block:", e);
@@ -830,6 +835,17 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                     },
                     required: ["taskId"]
                   }
+                },
+                {
+                  name: "syncTaskToCalendar",
+                  description: "Sync a task to the user's Google Calendar. IMPORTANT: Call getTasks first to get the taskId.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      taskId: { type: Type.STRING }
+                    },
+                    required: ["taskId"]
+                  }
                 }
               ]
             }
@@ -894,6 +910,15 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                           db.deleteTask(taskId);
                           resultData = { success: true };
                           clientWs.send(JSON.stringify({ refreshTasks: true }));
+                       } else {
+                          resultData = { error: "Task not found or unauthorized" };
+                       }
+                    } else if (name === "syncTaskToCalendar") {
+                       const taskId = args.taskId as string;
+                       const task = db.getTask(taskId);
+                       if (task && task.userId === user.id) {
+                          resultData = { success: true, message: "Sync command sent to client" };
+                          clientWs.send(JSON.stringify({ syncTask: task }));
                        } else {
                           resultData = { error: "Task not found or unauthorized" };
                        }

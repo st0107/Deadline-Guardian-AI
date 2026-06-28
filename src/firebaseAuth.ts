@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -8,52 +8,64 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
-let isSigningIn = false;
-let cachedAccessToken: string | null = null;
-
-export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
-  onAuthFailure?: () => void
-) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
+export const getAccessToken = async (): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      unsubscribe();
+      if (user) {
+        // Since we're using popup, we don't get the OAuth token again here easily,
+        // unless we store it or ask for it.
+        // But for Google APIs we need the *Google OAuth token*, not Firebase ID token.
+        // If we didn't store it during signIn, we might need a different approach.
+        // Let's assume we store it in localStorage or server side, but wait, 
+        // the client needs it for fetch calls to googleapis.com.
+        const token = localStorage.getItem('google_oauth_token');
+        resolve(token);
+      } else {
+        resolve(null);
       }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
-    }
+    });
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export const googleSignIn = async () => {
   try {
-    isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
+    const token = credential?.accessToken;
+    
+    // Send token to our server for Calendar Sync if needed
+    if (token) {
+        localStorage.setItem('google_oauth_token', token);
+        await fetch('/api/set-google-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+        });
     }
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
-  } catch (error: any) {
-    console.error('Sign in error:', error);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Google:", error);
     throw error;
-  } finally {
-    isSigningIn = false;
   }
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+export const signOut = async () => {
+    try {
+        await firebaseSignOut(auth);
+        localStorage.removeItem('google_oauth_token');
+        await fetch('/api/clear-google-token', { method: 'POST' });
+    } catch (error) {
+        console.error("Error signing out:", error);
+        throw error;
+    }
+}
+
+export const onAuthChange = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, callback);
 };
 
-export const logout = async () => {
-  await auth.signOut();
-  cachedAccessToken = null;
-};
+export { auth };

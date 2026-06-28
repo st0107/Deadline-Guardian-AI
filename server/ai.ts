@@ -666,6 +666,21 @@ Format for deleting a task:
 }
 [/COMMAND]
 
+Format for syncing a task to Google Calendar:
+[COMMAND]
+{
+  "action": "sync-calendar",
+  "taskId": "the-task-id-to-sync"
+}
+[/COMMAND]
+
+Format for syncing ALL tasks to Google Calendar:
+[COMMAND]
+{
+  "action": "sync-all-calendar"
+}
+[/COMMAND]
+
 Always resolve relative dates (like "tomorrow", "next Friday", "today") to exact "YYYY-MM-DD" dates using the current local time before writing the command block!
 `;
 
