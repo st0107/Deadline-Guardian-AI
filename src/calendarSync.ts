@@ -1,5 +1,61 @@
 import { Task, DailyPlan, DailyPlanItem } from './types';
-import { getAccessToken } from './firebaseAuth';
+import { getAccessToken, signOut } from './firebaseAuth';
+
+const getTasksCalendarId = async (token: string): Promise<string> => {
+  try {
+    const response = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('google_oauth_token');
+        signOut();
+        window.location.reload();
+        throw new Error("Google Calendar session expired. Logging out.");
+      }
+      console.error("Failed to fetch calendar list. Status:", response.status);
+      return 'primary';
+    }
+    const data = await response.json();
+    const tasksCalendar = data.items.find((c: any) => c.summary === 'Tasks' || (c.summary && c.summary.toLowerCase() === 'tasks'));
+    
+    if (tasksCalendar) {
+      return encodeURIComponent(tasksCalendar.id);
+    } else {
+      console.log("No calendar named 'Tasks' found. Creating one...");
+      // Create a new calendar
+      const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ summary: 'Tasks' })
+      });
+      if (createResponse.ok) {
+        const newCalendar = await createResponse.json();
+        console.log("Created Tasks calendar:", newCalendar.id);
+        return encodeURIComponent(newCalendar.id);
+      } else {
+        console.error("Failed to create Tasks calendar. Falling back to primary.", createResponse.status, await createResponse.text());
+        if (createResponse.status === 401 || createResponse.status === 403) {
+          localStorage.removeItem('google_oauth_token');
+          signOut();
+          window.location.reload();
+          throw new Error("Insufficient Google Calendar permissions or session expired. Logging out to request full access.");
+        }
+      }
+    }
+  } catch (e: any) {
+    if (e.message?.includes("session expired")) {
+      throw e;
+    }
+    console.error("Error finding Tasks calendar", e);
+  }
+  return 'primary';
+};
 
 export const syncTaskToCalendar = async (task: Task) => {
   const token = await getAccessToken();
@@ -61,7 +117,9 @@ export const syncTaskToCalendar = async (task: Task) => {
     reminders: remindersObj,
   };
 
-  const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+  const calendarId = await getTasksCalendarId(token);
+
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -71,6 +129,12 @@ export const syncTaskToCalendar = async (task: Task) => {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('google_oauth_token');
+      signOut();
+      window.location.reload();
+      throw new Error("Google Calendar session expired. Logging out.");
+    }
     const errorData = await response.json();
     throw new Error(errorData.error?.message || "Failed to sync to Google Calendar.");
   }
@@ -122,7 +186,9 @@ export const syncDailyPlanItemToCalendar = async (dateStr: string, item: DailyPl
     },
   };
 
-  const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+  const calendarId = await getTasksCalendarId(token);
+
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -132,6 +198,12 @@ export const syncDailyPlanItemToCalendar = async (dateStr: string, item: DailyPl
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('google_oauth_token');
+      signOut();
+      window.location.reload();
+      throw new Error("Google Calendar session expired. Logging out.");
+    }
     const errorData = await response.json();
     throw new Error(errorData.error?.message || "Failed to sync plan item to Google Calendar.");
   }

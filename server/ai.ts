@@ -632,6 +632,7 @@ Format for creating a task:
 [COMMAND]
 {
   "action": "create",
+  "syncToCalendar": true, // ONLY IF the user explicitly asked to sync to calendar
   "task": {
     "title": "Task title here",
     "deadline": "YYYY-MM-DD",
@@ -647,6 +648,7 @@ Format for updating a task:
 {
   "action": "update",
   "taskId": "the-task-id-to-update",
+  "syncToCalendar": true, // ONLY IF the user explicitly asked to sync to calendar
   "task": {
     "title": "New title (optional)",
     "deadline": "New deadline YYYY-MM-DD (optional)",

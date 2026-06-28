@@ -674,7 +674,7 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
             reminder: cmd.task.reminder || "none"
           });
           refreshTasks = true;
-          syncTask = newTask;
+          if (cmd.syncToCalendar) syncTask = newTask;
         } else if (cmd.action === "update" && cmd.taskId) {
           const updates: any = {};
           if (cmd.task) {
@@ -688,7 +688,7 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
           const updated = db.updateTask(cmd.taskId, updates);
           if (updated) {
             refreshTasks = true;
-            syncTask = updated;
+            if (cmd.syncToCalendar) syncTask = updated;
           }
         } else if (cmd.action === "delete" && cmd.taskId) {
           db.deleteTask(cmd.taskId);
@@ -803,7 +803,8 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                       deadline: { type: Type.STRING, description: "Strictly YYYY-MM-DD (e.g. 2026-06-25). Convert relative days to exact dates." },
                       priority: { type: Type.STRING, description: "Priority: low, medium, high" },
                       time: { type: Type.STRING, description: "Start time of the task in 24h HH:MM format (e.g. '14:30', '09:00'). Leave blank if not specified." },
-                      reminder: { type: Type.STRING, description: "Reminder interval: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] }
+                      reminder: { type: Type.STRING, description: "Reminder interval: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] },
+                      syncToCalendar: { type: Type.BOOLEAN, description: "Set to true ONLY if the user explicitly asked to sync this task to their Google Calendar" }
                     },
                     required: ["title", "deadline", "priority"]
                   }
@@ -820,7 +821,8 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                       deadline: { type: Type.STRING, description: "Strictly YYYY-MM-DD (e.g. 2026-06-25). Convert relative days to exact dates." },
                       priority: { type: Type.STRING, description: "New priority: low, medium, high" },
                       time: { type: Type.STRING, description: "New start time in 24h HH:MM format" },
-                      reminder: { type: Type.STRING, description: "New reminder: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] }
+                      reminder: { type: Type.STRING, description: "New reminder: none, 0min, 15min, 30min, 1hour, 1day", enum: ["none", "0min", "15min", "30min", "1hour", "1day"] },
+                      syncToCalendar: { type: Type.BOOLEAN, description: "Set to true ONLY if the user explicitly asked to sync this task to their Google Calendar" }
                     },
                     required: ["taskId"]
                   }
@@ -885,7 +887,9 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                          reminder: (args.reminder || "none") as string,
                        });
                        resultData = task;
-                       clientWs.send(JSON.stringify({ refreshTasks: true, syncTask: task }));
+                       const msg: any = { refreshTasks: true };
+                       if (args.syncToCalendar) msg.syncTask = task;
+                       clientWs.send(JSON.stringify(msg));
                     } else if (name === "updateTask") {
                        const taskId = args.taskId as string;
                        const task = db.getTask(taskId);
@@ -899,7 +903,9 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                           if (args.hasOwnProperty("reminder")) updates.reminder = args.reminder;
                           const updatedTask = db.updateTask(taskId, updates);
                           resultData = updatedTask;
-                          clientWs.send(JSON.stringify({ refreshTasks: true, syncTask: updatedTask }));
+                          const msg: any = { refreshTasks: true };
+                          if (args.syncToCalendar) msg.syncTask = updatedTask;
+                          clientWs.send(JSON.stringify(msg));
                        } else {
                           resultData = { error: "Task not found or unauthorized" };
                        }

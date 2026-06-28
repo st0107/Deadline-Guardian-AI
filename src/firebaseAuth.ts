@@ -6,7 +6,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/calendar.events');
+provider.addScope('https://www.googleapis.com/auth/calendar');
 
 export const getAccessToken = async (): Promise<string | null> => {
   return new Promise((resolve) => {
