@@ -10,7 +10,7 @@ export default function LiveVoiceWidget() {
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState("Offline");
   const [errorText, setErrorText] = useState("");
-  const [wakeWordListening, setWakeWordListening] = useState(false);
+  const [contactlessMode, setContactlessMode] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
@@ -18,7 +18,6 @@ export default function LiveVoiceWidget() {
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
-  const permissionDeniedRef = useRef(false);
   const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
 
   // Audio Playback Queue offsets
@@ -37,79 +36,65 @@ export default function LiveVoiceWidget() {
   useEffect(() => {
     if (!SpeechRecognition) return;
 
-    if (!recognitionRef.current) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+    if (contactlessMode) {
+      if (!recognitionRef.current) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
 
-      recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const rawTranscript = event.results[i][0].transcript;
-          const transcript = rawTranscript.toLowerCase().replace(/[.,!?]/g, "").trim();
-          
-          if (event.results[i].isFinal) {
-            console.log("[WakeWord] Final Heard:", transcript);
-          } else {
-            console.log("[WakeWord] Interim:", transcript);
-          }
-
-          if (!activeRef.current && !connectingRef.current && (transcript.includes("hello guardian") || transcript.includes("hi guardian") || transcript.includes("guardian ai"))) {
-            console.log("[WakeWord] Triggering start voice");
-            window.dispatchEvent(new CustomEvent("dg_start_voice"));
-          }
-          if (activeRef.current && (transcript.includes("go offline") || transcript.includes("stop guardian") || transcript.includes("goodbye guardian"))) {
-            console.log("[WakeWord] Triggering stop voice");
-            window.dispatchEvent(new CustomEvent("dg_stop_voice"));
-          }
-        }
-      };
-
-      recognition.onend = () => {
-        // Restart recognition if it ends, unless permission denied
-        if (recognitionRef.current && !permissionDeniedRef.current) {
-          setTimeout(() => {
-            if (recognitionRef.current && !permissionDeniedRef.current) {
-              try {
-                recognitionRef.current.start();
-              } catch (e) {}
+        recognition.onresult = (event: any) => {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const rawTranscript = event.results[i][0].transcript;
+            const transcript = rawTranscript.toLowerCase().replace(/[.,!?]/g, "").trim();
+            
+            if (!activeRef.current && !connectingRef.current && (transcript.includes("hello guardian") || transcript.includes("hi guardian") || transcript.includes("guardian ai"))) {
+              window.dispatchEvent(new CustomEvent("dg_start_voice"));
             }
-          }, 500);
-        }
-      };
+            if (activeRef.current && (transcript.includes("go offline") || transcript.includes("stop guardian") || transcript.includes("goodbye guardian"))) {
+              window.dispatchEvent(new CustomEvent("dg_stop_voice"));
+            }
+          }
+        };
 
-      recognition.onerror = (event: any) => {
-        console.log("[WakeWord] Error:", event.error);
-        if (event.error === 'not-allowed') {
-          setWakeWordListening(false);
-          permissionDeniedRef.current = true;
-          // If permission is denied initially, don't keep trying to restart aggressively
-        } else if (event.error === 'audio-capture') {
-          setWakeWordListening(false);
-        }
-      };
+        recognition.onend = () => {
+          if (recognitionRef.current) {
+            setTimeout(() => {
+              if (recognitionRef.current) {
+                try { recognitionRef.current.start(); } catch(e) {}
+              }
+            }, 500);
+          }
+        };
 
-      recognition.onstart = () => {
-        console.log("[WakeWord] Listening started");
-        setWakeWordListening(true);
-      };
+        recognition.onerror = (event: any) => {
+          if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+            setContactlessMode(false);
+          }
+        };
 
-      recognitionRef.current = recognition;
-    }
+        recognitionRef.current = recognition;
+      }
 
-    try {
-      recognitionRef.current.start();
-    } catch (e) {}
-
-    return () => {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {}
+    } else {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-          setWakeWordListening(false);
-        } catch (e) {}
+        } catch(e) {}
+        recognitionRef.current = null;
+      }
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e) {}
+        recognitionRef.current = null;
       }
     };
-  }, []);
+  }, [contactlessMode]);
 
   useEffect(() => {
     const handleStart = () => startVoiceSession();
@@ -125,7 +110,6 @@ export default function LiveVoiceWidget() {
   const startVoiceSession = async () => {
     if (connectingRef.current || activeRef.current) return;
     connectingRef.current = true; // Immediate lock
-    permissionDeniedRef.current = false;
     
     setErrorText("");
     setConnecting(true);
@@ -247,13 +231,6 @@ export default function LiveVoiceWidget() {
     if (outputAudioCtxRef.current) {
       outputAudioCtxRef.current.close().catch(() => {});
       outputAudioCtxRef.current = null;
-    }
-
-    if (recognitionRef.current && !permissionDeniedRef.current) {
-      try {
-        recognitionRef.current.start();
-        setWakeWordListening(true);
-      } catch (e) {}
     }
   };
 
@@ -404,6 +381,21 @@ export default function LiveVoiceWidget() {
         )}
       </div>
 
+      {SpeechRecognition && !active && (
+        <div className="flex items-center gap-2 mt-2">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              className="sr-only peer" 
+              checked={contactlessMode}
+              onChange={(e) => setContactlessMode(e.target.checked)}
+            />
+            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+            <span className="ml-2 text-xs font-medium text-slate-600">Hands-Free Mode</span>
+          </label>
+        </div>
+      )}
+
       <div className="text-[11px] text-slate-505 text-slate-500 font-medium leading-normal text-center max-w-xs pt-2">
         {active ? (
           <span className="text-indigo-600 flex flex-col items-center justify-center gap-1 font-bold">
@@ -411,10 +403,12 @@ export default function LiveVoiceWidget() {
               <Volume2 className="h-4.5 w-4.5 animate-pulse text-indigo-600" />
               <span>Voice diagnostic active...</span>
             </div>
-            <span className="text-xs font-normal mt-1 opacity-80">Say "go offline" or tap to stop</span>
+            <span className="text-xs font-normal mt-1 opacity-80">
+              {contactlessMode ? 'Say "go offline" or tap to stop' : 'Tap to stop'}
+            </span>
           </span>
         ) : (
-          wakeWordListening ? "Say \"Hello Guardian AI\" or tap the dial to start a spoken voice diagnostic." : "Tap the dial to grant mic permissions and start a spoken voice diagnostic. (Wake word requires permission first)"
+          contactlessMode ? 'Say "Hello Guardian AI" or tap the dial to start a spoken voice diagnostic.' : 'Tap the dial to grant mic permissions and start a spoken voice diagnostic.'
         )}
       </div>
     </div>
