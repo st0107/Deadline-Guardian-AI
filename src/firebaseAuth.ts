@@ -47,8 +47,11 @@ export const googleSignIn = async () => {
     }
 
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in with Google:", error);
+    if (error.code === 'auth/missing-initial-state' || error.message.includes('missing initial state')) {
+       alert("Sign in failed because of browser privacy protections in this preview iframe.\n\nTo bypass the Google warning screen, please open this app in a New Tab (using the pop-out icon) and try again.");
+    }
     throw error;
   }
 };
