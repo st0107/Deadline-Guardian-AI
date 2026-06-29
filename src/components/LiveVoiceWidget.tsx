@@ -123,7 +123,8 @@ export default function LiveVoiceWidget() {
       // 2. Open client-side WebSockets
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const token = localStorage.getItem("dg_jwt_token");
-      const wsUrl = `${protocol}//${window.location.host}/api/live-stream${token ? `?token=${token}` : ""}`;
+      const localTime = encodeURIComponent(new Date().toLocaleString());
+      const wsUrl = `${protocol}//${window.location.host}/api/live-stream?token=${token || ""}&localTime=${localTime}`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

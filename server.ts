@@ -29,6 +29,10 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // --- BASE API ROUTES ---
 
+const getClientLocalTime = (req: express.Request) => {
+  return (req.headers["x-local-time"] as string) || new Date().toLocaleString();
+};
+
 // Healthcheck
 app.get("/api/health", (req, res) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
@@ -268,7 +272,7 @@ app.post("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
 
     if (textPrompt) {
       // Feature 1: Natural Language Task Creation
-      const aiResponse = await analyzeNaturalLanguageTask(textPrompt, new Date().toISOString());
+      const aiResponse = await analyzeNaturalLanguageTask(textPrompt, getClientLocalTime(req));
       finalTaskData = {
         title: aiResponse.title,
         deadline: aiResponse.deadline,
@@ -285,7 +289,7 @@ app.post("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
 
     // Feature 3: Automatically Predict Deadline Risk immediately during creation
     const otherTasks = db.getTasks(userId);
-    const riskAnalysis = await predictDeadlineRisk(finalTaskData, otherTasks, new Date().toISOString());
+    const riskAnalysis = await predictDeadlineRisk(finalTaskData, otherTasks, getClientLocalTime(req));
 
     const createdTask = db.createTask(userId, {
       ...finalTaskData,
@@ -353,7 +357,7 @@ app.put("/api/tasks/:id", requireAuth, async (req: AuthenticatedRequest, res) =>
         priority: updates.priority || existingTask.priority,
       };
       const otherTasks = db.getTasks(userId).filter((t) => t.id !== id);
-      const prediction = await predictDeadlineRisk(pendingTaskData, otherTasks, new Date().toISOString());
+      const prediction = await predictDeadlineRisk(pendingTaskData, otherTasks, getClientLocalTime(req));
       riskUpdates = {
         riskScore: prediction.riskScore,
         riskReason: prediction.explanation,
@@ -420,7 +424,7 @@ app.post("/api/ai/analyze-task", requireAuth, async (req: AuthenticatedRequest, 
       return res.status(400).json({ error: "Natural language input payload textPrompt is required." });
     }
 
-    const extracted = await analyzeNaturalLanguageTask(textPrompt, new Date().toISOString());
+    const extracted = await analyzeNaturalLanguageTask(textPrompt, getClientLocalTime(req));
     res.json(extracted);
   } catch (err: any) {
     console.error("AI parse failed:", err);
@@ -440,7 +444,7 @@ app.post("/api/ai/risk-analysis", requireAuth, async (req: AuthenticatedRequest,
     }
 
     const otherTasks = db.getTasks(userId).filter((t) => t.id !== taskId);
-    const prediction = await predictDeadlineRisk(task, otherTasks, new Date().toISOString());
+    const prediction = await predictDeadlineRisk(task, otherTasks, getClientLocalTime(req));
 
     // Update target task with new prediction results
     const updated = db.updateTask(taskId, {
@@ -469,7 +473,7 @@ app.post("/api/ai/daily-plan", requireAuth, async (req: AuthenticatedRequest, re
     const hours = Number(availableHours);
     const tasks = db.getTasks(userId);
 
-    const plannerResults = await generateDailyPlanner(userId, targetDate, hours, tasks, new Date().toISOString());
+    const plannerResults = await generateDailyPlanner(userId, targetDate, hours, tasks, getClientLocalTime(req));
 
     // Save Daily Plan to database cache
     const savedPlan = db.saveDailyPlan(userId, targetDate, plannerResults.items, plannerResults.recommendations);
@@ -525,7 +529,7 @@ app.post("/api/ai/replan", requireAuth, async (req: AuthenticatedRequest, res) =
       incompleteTasks,
       upcomingTasks,
       hours,
-      new Date().toISOString()
+      getClientLocalTime(req)
     );
 
     const savedPlan = db.saveDailyPlan(userId, targetDate, rescueResponse.items, rescueResponse.recommendations);
@@ -647,7 +651,7 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
       pastChatHistory,
       prompt,
       currentTasks,
-      new Date().toISOString()
+      getClientLocalTime(req)
     );
 
     // Parse possible [COMMAND] blocks in the textResult
@@ -755,6 +759,8 @@ async function startServer() {
 
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const token = url.searchParams.get("token");
+    const localTimeParam = url.searchParams.get("localTime");
+    const currentLocalTime = localTimeParam ? decodeURIComponent(localTimeParam) : new Date().toLocaleString();
     const user = token ? verifyAuthToken(token) : null;
 
     if (!user) {
@@ -783,7 +789,7 @@ async function startServer() {
           },
           systemInstruction:
             `You are a welcoming real-time productivity assistant for Deadline Guardian AI. Keep your voice responses supportive, quick, and conversational. Give guidance on deadlines. You can read, create, update, and delete the user's tasks. Use the tools provided when the user requests help managing their schedule. ALWAYS call getTasks first to find the correct taskId before updating or deleting a task. 
-The current local date and time is: ${new Date().toLocaleString()}.
+The current local date and time is: ${currentLocalTime}.
 When passing dates (like deadlines) to tools, ALWAYS calculate the exact target date based on the current local date, and format it strictly as "YYYY-MM-DD". NEVER pass words like "tomorrow", "today", "next week", "invalid date" or unformatted dates to the tools.`,
           tools: [
             {

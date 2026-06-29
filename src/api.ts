@@ -4,6 +4,7 @@ const getHeaders = () => {
   const token = localStorage.getItem("dg_jwt_token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Local-Time": new Date().toLocaleString(),
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
