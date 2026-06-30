@@ -158,8 +158,8 @@ interface Task {
 
 ### Feature 3: Real-Time Voice Assistant with Tool Execution
 * **Model**: `gemini-3.1-flash-live-preview` (Ultra-low latency streaming voice API).
-* **Config**: `Modality.AUDIO`, system instruction rules, tool function declarations (`getTasks`, `createTask`, `updateTask`, `deleteTask`).
-* **Implementation Details**: Audio is captured via `LiveVoiceWidget` as 16kHz PCM, streamed across WebSockets to the Express server, and bridged directly into the Gemini Live Session. The model can choose to invoke server-side tools (like creating or modifying a task), which run securely in the backend, return results to the AI, and emit `refreshTasks` sync events to update the React UI seamlessly.
+* **Config**: `Modality.AUDIO`, system instruction rules, tool function declarations (`getTasks`, `createTask`, `updateTask`, `deleteTask`, `smartReplan`, `goOffline`).
+* **Implementation Details**: Audio is captured via `LiveVoiceWidget` as 16kHz PCM, streamed across WebSockets to the Express server, and bridged directly into the Gemini Live Session. The model can choose to invoke server-side tools (like creating or modifying a task), which run securely in the backend, return results to the AI, and emit `refreshTasks` sync events to update the React UI seamlessly. Users can easily activate or deactivate the voice widget through chat shortcuts or voice commands like "Hello Guardian AI" and "Go Offline".
 
 ---
 
