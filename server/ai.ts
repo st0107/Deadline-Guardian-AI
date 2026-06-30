@@ -683,6 +683,15 @@ Format for syncing ALL tasks to Google Calendar:
 }
 [/COMMAND]
 
+Format for smart replanning the day (rescue routine):
+[COMMAND]
+{
+  "action": "replan",
+  "targetDate": "YYYY-MM-DD",
+  "availableHours": 8
+}
+[/COMMAND]
+
 Always resolve relative dates (like "tomorrow", "next Friday", "today") to exact "YYYY-MM-DD" dates using the current local time before writing the command block!
 `;
 

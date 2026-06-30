@@ -72,21 +72,25 @@ export const syncTaskToCalendar = async (task: Task) => {
   const month = parts[1] ? parseInt(parts[1], 10) - 1 : new Date().getMonth();
   const day = parts[2] ? parseInt(parts[2], 10) : new Date().getDate();
 
-  let endHour = 17;
-  let endMinute = 0;
+  let startHour = 17;
+  let startMinute = 0;
   if (task.time) {
     const timeParts = task.time.split(':');
-    if (timeParts[0]) endHour = parseInt(timeParts[0], 10);
-    if (timeParts[1]) endMinute = parseInt(timeParts[1], 10);
+    if (timeParts[0]) startHour = parseInt(timeParts[0], 10);
+    if (timeParts[1]) startMinute = parseInt(timeParts[1], 10);
+  } else {
+    // If no specific time, let's say it starts at 9 AM, or maybe defaults to 17:00?
+    // Let's use 9 AM as default start time
+    startHour = 9;
   }
 
-  const effortHours = task.effort || 1;
+  const effortHours = typeof task.effort === 'number' ? task.effort : parseFloat(String(task.effort)) || 1;
 
-  // The deadline is the end time
-  const endDt = new Date(year, month, day, endHour, endMinute, 0);
+  // Start time is the specified time
+  const startDt = new Date(year, month, day, startHour, startMinute, 0);
   
-  // Start time is deadline minus effort
-  const startDt = new Date(endDt.getTime() - effortHours * 60 * 60 * 1000);
+  // End time is start time plus effort
+  const endDt = new Date(startDt.getTime() + effortHours * 60 * 60 * 1000);
 
   const remindersObj: any = { useDefault: true };
   if (task.reminder && task.reminder !== "none") {

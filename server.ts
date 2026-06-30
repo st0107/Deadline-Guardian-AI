@@ -702,6 +702,25 @@ app.post("/api/ai/chat", requireAuth, async (req: AuthenticatedRequest, res) => 
           if (task && task.userId === userId) {
             syncTask = task;
           }
+        } else if (cmd.action === "replan" && cmd.targetDate && cmd.availableHours) {
+          const tasks = db.getTasks(userId);
+          const activeTasks = tasks.filter((t) => t.statusKey !== "completed");
+          const incompleteTasks = activeTasks.filter(
+            (t) => t.statusKey === "started" || new Date(t.deadline).getTime() < new Date(cmd.targetDate).getTime()
+          );
+          const upcomingTasks = activeTasks.filter((t) => !incompleteTasks.some((it) => it.id === t.id));
+
+          const rescueResponse = await generateReplanner(
+            null,
+            incompleteTasks,
+            upcomingTasks,
+            Number(cmd.availableHours),
+            getClientLocalTime(req)
+          );
+
+          db.saveDailyPlan(userId, cmd.targetDate, rescueResponse.items, rescueResponse.recommendations);
+          db.createActivityLog(userId, "replan", `Smart replan triggered from chat for ${cmd.targetDate}`);
+          refreshTasks = true;
         }
       } catch (e) {
         console.error("Failed to execute parsed [COMMAND] block:", e);
@@ -854,13 +873,30 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                     },
                     required: ["taskId"]
                   }
+                },
+                {
+                  name: "smartReplan",
+                  description: "Trigger the Smart Replanning Rescue Routine. Automatically reschedules incomplete tasks to the target date. Generates a daily plan.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      targetDate: { type: Type.STRING, description: "Strictly YYYY-MM-DD (e.g. 2026-06-25)" },
+                      availableHours: { type: Type.NUMBER, description: "Number of hours available for the plan (e.g., 8)" }
+                    },
+                    required: ["targetDate", "availableHours"]
+                  }
+                },
+                {
+                  name: "goOffline",
+                  description: "Call this tool when the user says 'go offline', 'stop guardian', 'goodbye', or requests to end the voice session.",
+                  parameters: { type: Type.OBJECT, properties: {} }
                 }
               ]
             }
           ]
         },
         callbacks: {
-          onmessage: (message) => {
+          onmessage: async (message) => {
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData) {
               clientWs.send(JSON.stringify({ audio: audioData }));
@@ -934,6 +970,33 @@ When passing dates (like deadlines) to tools, ALWAYS calculate the exact target 
                        } else {
                           resultData = { error: "Task not found or unauthorized" };
                        }
+                    } else if (name === "smartReplan") {
+                       const targetDate = args.targetDate as string;
+                       const availableHours = args.availableHours as number;
+                       
+                       const tasks = db.getTasks(user.id);
+                       const activeTasks = tasks.filter((t) => t.statusKey !== "completed");
+                       const incompleteTasks = activeTasks.filter(
+                         (t) => t.statusKey === "started" || new Date(t.deadline).getTime() < new Date(targetDate).getTime()
+                       );
+                       const upcomingTasks = activeTasks.filter((t) => !incompleteTasks.some((it) => it.id === t.id));
+
+                       const rescueResponse = await generateReplanner(
+                         null,
+                         incompleteTasks,
+                         upcomingTasks,
+                         availableHours,
+                         currentLocalTime
+                       );
+
+                       db.saveDailyPlan(user.id, targetDate, rescueResponse.items, rescueResponse.recommendations);
+                       db.createActivityLog(user.id, "replan", `Smart replan triggered from voice for ${targetDate}`);
+                       
+                       resultData = { success: true, message: "Replanning completed successfully." };
+                       clientWs.send(JSON.stringify({ refreshTasks: true }));
+                    } else if (name === "goOffline") {
+                       clientWs.send(JSON.stringify({ stopVoice: true }));
+                       resultData = { success: true };
                     }
                   } catch (e: any) {
                      resultData = { error: e.message };

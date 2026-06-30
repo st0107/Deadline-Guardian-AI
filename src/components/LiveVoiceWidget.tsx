@@ -152,6 +152,9 @@ export default function LiveVoiceWidget() {
             // and the new response audio simply appends to the timeline.
             console.log("Audio interruption signal received, but ignored to maintain queue.");
           }
+          if (payload.stopVoice) {
+            stopVoiceSession();
+          }
           if (payload.refreshTasks) {
             window.dispatchEvent(new Event("dg_refresh_tasks"));
           }

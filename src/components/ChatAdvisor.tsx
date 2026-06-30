@@ -41,6 +41,18 @@ export default function ChatAdvisor({ tasksCount }: ChatAdvisorProps) {
     setErrMessage("");
     const userPrompt = inputMsg;
     setInputMsg("");
+
+    // Command shortcuts
+    const lowerPrompt = userPrompt.toLowerCase().trim();
+    if (lowerPrompt === "hello guardian ai" || lowerPrompt === "hello guardian" || lowerPrompt === "guardian ai") {
+      window.dispatchEvent(new CustomEvent("dg_start_voice"));
+      return;
+    }
+    if (lowerPrompt === "go offline" || lowerPrompt === "stop guardian") {
+      window.dispatchEvent(new CustomEvent("dg_stop_voice"));
+      return;
+    }
+
     setLoading(true);
 
     // Optimistically update message history list

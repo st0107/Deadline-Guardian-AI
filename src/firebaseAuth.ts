@@ -1,9 +1,24 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
-import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+let firebaseConfig = {};
+try {
+  const configs = import.meta.glob('../firebase-applet-config.json', { eager: true });
+  if (configs['../firebase-applet-config.json']) {
+    firebaseConfig = (configs['../firebase-applet-config.json'] as any).default;
+  }
+} catch (e) {
+  console.warn("No firebase config found");
+}
+
+let app: any;
+let auth: any;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+} catch (e) {
+  console.error("Firebase init failed:", e);
+}
 
 const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/calendar');
